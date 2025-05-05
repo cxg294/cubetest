@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>堆积正方体三视图演示</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            display: flex;
+            width: 100%;
+            max-width: 1200px;
+            gap: 20px;
+        }
+        
+        .control-panel {
+            width: 300px;
+            padding: 15px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .views-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .top-view-editor {
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .three-views {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .view {
+            flex: 1;
+            min-width: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        h2, h3 {
+            color: #333;
+            margin-top: 0;
+        }
+        
+        .grid {
+            display: grid;
+            gap: 2px;
+            margin: 15px 0;
+        }
+        
+        .cell {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #ccc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            background-color: #f9f9f9;
+            transition: background-color 0.2s;
+        }
+        
+        .cell:hover {
+            background-color: #e0e0e0;
+        }
+        
+        .cell.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+        
+        .height-display {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .view-grid {
+            display: grid;
+            gap: 1px;
+        }
+        
+        .view-cell {
+            width: 20px;
+            height: 20px;
+            border: 1px solid #ddd;
+        }
+        
+        .view-cell.filled {
+            background-color: #4CAF50;
+        }
+        
+        button {
+            padding: 8px 15px;
+            margin: 5px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        .instructions {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f5e9;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .slider-container {
+            margin: 15px 0;
+        }
+        
+        .slider-container label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>堆积正方体三视图演示</h1>
+    
+    <div class="container">
+        <div class="control-panel">
+            <h2>控制面板</h2>
+            
+            <div class="slider-container">
+                <label for="grid-size">网格大小:</label>
+                <input type="range" id="grid-size" min="3" max="10" value="5">
+                <span id="grid-size-value">5x5</span>
+            </div>
+            
+            <div class="slider-container">
+                <label for="max-height">最大高度:</label>
+                <input type="range" id="max-height" min="1" max="10" value="5">
+                <span id="max-height-value">5</span>
+            </div>
+            
+            <button id="reset-btn">重置</button>
+            <button id="random-btn">随机生成</button>
+            
+            <div class="instructions">
+                <h3>使用说明:</h3>
+                <p>- 点击左侧俯视图网格中的格子可以增加该位置的小正方体数量</p>
+                <p>- 按住Shift键点击可以减少数量</p>
+                <p>- 右侧显示堆积体的三视图（主视图、俯视图、侧视图）</p>
+            </div>
+        </div>
+        
+        <div class="views-container">
+            <div class="top-view-editor">
+                <h3>俯视图编辑器 (点击编辑)</h3>
+                <div id="editor-grid" class="grid"></div>
+            </div>
+            
+            <div class="three-views">
+                <div class="view">
+                    <h3>主视图</h3>
+                    <div id="front-view" class="view-grid"></div>
+                </div>
+                
+                <div class="view">
+                    <h3>俯视图</h3>
+                    <div id="top-view" class="view-grid"></div>
+                </div>
+                
+                <div class="view">
+                    <h3>侧视图</h3>
+                    <div id="side-view" class="view-grid"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 全局变量
+        let gridSize = 5;
+        let maxHeight = 5;
+        let gridData = [];
+        
+        // DOM元素
+        const editorGrid = document.getElementById('editor-grid');
+        const frontView = document.getElementById('front-view');
+        const topView = document.getElementById('top-view');
+        const sideView = document.getElementById('side-view');
+        const gridSizeSlider = document.getElementById('grid-size');
+        const gridSizeValue = document.getElementById('grid-size-value');
+        const maxHeightSlider = document.getElementById('max-height');
+        const maxHeightValue = document.getElementById('max-height-value');
+        const resetBtn = document.getElementById('reset-btn');
+        const randomBtn = document.getElementById('random-btn');
+        
+        // 初始化
+        function init() {
+            // 设置事件监听器
+            gridSizeSlider.addEventListener('input', updateGridSize);
+            maxHeightSlider.addEventListener('input', updateMaxHeight);
+            resetBtn.addEventListener('click', resetGrid);
+            randomBtn.addEventListener('click', generateRandomGrid);
+            
+            // 初始化网格
+            updateGridSize();
+        }
+        
+        // 更新网格大小
+        function updateGridSize() {
+            gridSize = parseInt(gridSizeSlider.value);
+            gridSizeValue.textContent = `${gridSize}x${gridSize}`;
+            resetGrid();
+        }
+        
+        // 更新最大高度
+        function updateMaxHeight() {
+            maxHeight = parseInt(maxHeightSlider.value);
+            maxHeightValue.textContent = maxHeight;
+            resetGrid();
+        }
+        
+        // 重置网格
+        function resetGrid() {
+            // 初始化网格数据
+            gridData = Array(gridSize).fill().map(() => Array(gridSize).fill(0));
+            
+            // 重新渲染编辑器网格
+            renderEditorGrid();
+            
+            // 更新视图
+            updateViews();
+        }
+        
+        // 随机生成网格
+        function generateRandomGrid() {
+            gridData = Array(gridSize).fill().map(() => 
+                Array(gridSize).fill().map(() => Math.floor(Math.random() * (maxHeight + 1)))
+            );
+            
+            renderEditorGrid();
+            updateViews();
+        }
+        
+        // 渲染编辑器网格
+        function renderEditorGrid() {
+            editorGrid.innerHTML = '';
+            editorGrid.style.gridTemplateColumns = `repeat(${gridSize}, 30px)`;
+            
+            for (let y = 0; y < gridSize; y++) {
+                for (let x = 0; x < gridSize; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    if (gridData[y][x] > 0) {
+                        cell.classList.add('active');
+                    }
+                    
+                    const heightDisplay = document.createElement('div');
+                    heightDisplay.className = 'height-display';
+                    heightDisplay.textContent = gridData[y][x] > 0 ? gridData[y][x] : '';
+                    cell.appendChild(heightDisplay);
+                    
+                    cell.addEventListener('click', (e) => {
+                        if (e.shiftKey) {
+                            // 减少高度
+                            gridData[y][x] = Math.max(0, gridData[y][x] - 1);
+                        } else {
+                            // 增加高度
+                            gridData[y][x] = Math.min(maxHeight, gridData[y][x] + 1);
+                        }
+                        
+                        if (gridData[y][x] > 0) {
+                            cell.classList.add('active');
+                        } else {
+                            cell.classList.remove('active');
+                        }
+                        
+                        heightDisplay.textContent = gridData[y][x] > 0 ? gridData[y][x] : '';
+                        updateViews();
+                    });
+                    
+                    editorGrid.appendChild(cell);
+                }
+            }
+        }
+        
+        // 更新三视图
+        function updateViews() {
+            updateFrontView();
+            updateTopView();
+            updateSideView();
+        }
+        
+        // 更新主视图
+        function updateFrontView() {
+            frontView.innerHTML = '';
+            frontView.style.gridTemplateRows = `repeat(${maxHeight}, 20px)`;
+            frontView.style.gridTemplateColumns = `repeat(${gridSize}, 20px)`;
+            
+            // 计算主视图 (每列的最大高度)
+            const frontViewData = Array(gridSize).fill(0);
+            
+            for (let x = 0; x < gridSize; x++) {
+                let maxColHeight = 0;
+                for (let y = 0; y < gridSize; y++) {
+                    if (gridData[y][x] > maxColHeight) {
+                        maxColHeight = gridData[y][x];
+                    }
+                }
+                frontViewData[x] = maxColHeight;
+            }
+            
+            // 渲染主视图
+            for (let h = maxHeight - 1; h >= 0; h--) {
+                for (let x = 0; x < gridSize; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'view-cell';
+                    if (frontViewData[x] > h) {
+                        cell.classList.add('filled');
+                    }
+                    frontView.appendChild(cell);
+                }
+            }
+        }
+        
+        // 更新俯视图
+        function updateTopView() {
+            topView.innerHTML = '';
+            topView.style.gridTemplateRows = `repeat(${gridSize}, 20px)`;
+            topView.style.gridTemplateColumns = `repeat(${gridSize}, 20px)`;
+            
+            // 俯视图就是是否有方块
+            for (let y = 0; y < gridSize; y++) {
+                for (let x = 0; x < gridSize; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'view-cell';
+                    if (gridData[y][x] > 0) {
+                        cell.classList.add('filled');
+                    }
+                    topView.appendChild(cell);
+                }
+            }
+        }
+        
+        // 更新侧视图
+        function updateSideView() {
+            sideView.innerHTML = '';
+            sideView.style.gridTemplateRows = `repeat(${maxHeight}, 20px)`;
+            sideView.style.gridTemplateColumns = `repeat(${gridSize}, 20px)`;
+            
+            // 计算侧视图 (每行的最大高度)
+            const sideViewData = Array(gridSize).fill(0);
+            
+            for (let y = 0; y < gridSize; y++) {
+                let maxRowHeight = 0;
+                for (let x = 0; x < gridSize; x++) {
+                    if (gridData[y][x] > maxRowHeight) {
+                        maxRowHeight = gridData[y][x];
+                    }
+                }
+                sideViewData[y] = maxRowHeight;
+            }
+            
+            // 渲染侧视图
+            for (let h = maxHeight - 1; h >= 0; h--) {
+                for (let y = 0; y < gridSize; y++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'view-cell';
+                    if (sideViewData[y] > h) {
+                        cell.classList.add('filled');
+                    }
+                    sideView.appendChild(cell);
+                }
+            }
+        }
+        
+        // 启动应用
+        init();
+    </script>
+</body>
+</html>

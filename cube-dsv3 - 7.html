@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小学数学 - 观察物体</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Microsoft YaHei', sans-serif;
+            overflow: hidden;
+            background-color: #f5f5f5;
+        }
+        #container {
+            display: flex;
+            height: 100vh;
+        }
+        #main-view {
+            width: 70%;
+            height: 70%;
+            position: relative;
+            border-right: 1px solid #ccc;
+        }
+        #top-view {
+            width: 30%;
+            height: 70%;
+            position: relative;
+        }
+        #ortho-views {
+            width: 100%;
+            height: 30%;
+            display: flex;
+            border-top: 1px solid #ccc;
+        }
+        #front-view, #side-view {
+            width: 50%;
+            height: 100%;
+            position: relative;
+        }
+        #front-view {
+            border-right: 1px solid #ccc;
+        }
+        .view-label {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.7);
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 14px;
+            z-index: 100;
+        }
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        button {
+            padding: 8px 12px;
+            margin: 0 5px;
+            background-color: #42A5F5;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #1E88E5;
+        }
+        .grid-helper {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
+            color: #666;
+            z-index: 50;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="main-view">
+            <div class="view-label">主视图 (3D视角)</div>
+        </div>
+        <div id="top-view">
+            <div class="view-label">俯视图 (编辑区)</div>
+            <div class="grid-helper">XZ平面网格 (点击左键添加/右键移除方块)</div>
+        </div>
+        <div id="ortho-views">
+            <div id="front-view">
+                <div class="view-label">正视图 (Y轴投影)</div>
+            </div>
+            <div id="side-view">
+                <div class="view-label">侧视图 (X轴投影)</div>
+            </div>
+        </div>
+        <div id="controls">
+            <button id="reset-scene">重置场景</button>
+            <button id="reset-camera">视角复位</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+        import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.132.2/examples/jsm/controls/OrbitControls.js';
+
+        // 全局变量
+        let mainScene, topScene, frontScene, sideScene;
+        let mainCamera, topCamera, frontCamera, sideCamera;
+        let mainRenderer, topRenderer, frontRenderer, sideRenderer;
+        let mainControls;
+        let cubeGroup = new THREE.Group(); // 所有立方体的父容器
+        let outlineGroup = new THREE.Group(); // 所有轮廓线的父容器
+        const gridSize = 5; // 5x5网格
+        const maxHeight = 4; // 最大堆叠高度
+        const cubeSize = 1; // 立方体大小
+        const cubeColor = 0x42A5F5; // 立方体颜色
+        const outlineColors = {
+            top: 0xFF5252,    // 俯视图轮廓颜色 (红色)
+            front: 0x4CAF50,  // 正视图轮廓颜色 (绿色)
+            side: 0x2196F3    // 侧视图轮廓颜色 (蓝色)
+        };
+
+        // 初始化函数
+        function init() {
+            // 初始化所有场景
+            initScenes();
+            
+            // 初始化所有相机
+            initCameras();
+            
+            // 初始化所有渲染器
+            initRenderers();
+            
+            // 初始化控制器
+            initControls();
+            
+            // 初始化网格和坐标轴
+            initGridsAndAxes();
+            
+            // 初始化事件监听
+            initEventListeners();
+            
+            // 开始动画循环
+            animate();
+        }
+
+        // 初始化所有场景
+        function initScenes() {
+            // 主场景 (透视投影)
+            mainScene = new THREE.Scene();
+            mainScene.background = new THREE.Color(0xf0f0f0);
+            mainScene.add(cubeGroup);
+            mainScene.add(outlineGroup);
+            
+            // 俯视场景 (正交投影)
+            topScene = new THREE.Scene();
+            topScene.background = new THREE.Color(0xe0e0e0);
+            topScene.add(cubeGroup.clone()); // 克隆立方体组
+            topScene.add(outlineGroup.clone()); // 克隆轮廓线组
+            
+            // 正视图场景 (正交投影)
+            frontScene = new THREE.Scene();
+            frontScene.background = new THREE.Color(0xe8e8e8);
+            frontScene.add(cubeGroup.clone());
+            frontScene.add(outlineGroup.clone());
+            
+            // 侧视图场景 (正交投影)
+            sideScene = new THREE.Scene();
+            sideScene.background = new THREE.Color(0xe8e8e8);
+            sideScene.add(cubeGroup.clone());
+            sideScene.add(outlineGroup.clone());
+        }
+
+        // 初始化所有相机
+        function initCameras() {
+            // 主相机 (透视投影)
+            const mainView = document.getElementById('main-view');
+            mainCamera = new THREE.PerspectiveCamera(
+                60, 
+                mainView.clientWidth / mainView.clientHeight, 
+                0.1, 
+                1000
+            );
+            mainCamera.position.set(5, 5, 5);
+            mainCamera.lookAt(0, 0, 0);
+            
+            // 俯视相机 (正交投影)
+            const topView = document.getElementById('top-view');
+            const topAspect = topView.clientWidth / topView.clientHeight;
+            const topViewHeight = 4;
+            const topViewWidth = topViewHeight * topAspect;
+            
+            topCamera = new THREE.OrthographicCamera(
+                -topViewWidth / 2, 
+                topViewWidth / 2, 
+                topViewHeight / 2, 
+                -topViewHeight / 2, 
+                0.1, 
+                100
+            );
+            topCamera.position.set(0, 10, 0);
+            topCamera.lookAt(0, 0, 0);
+            topCamera.up.set(0, 0, -1); // 调整up向量使Z轴朝上
+            
+            // 正视图相机 (正交投影)
+            const frontView = document.getElementById('front-view');
+            const frontAspect = frontView.clientWidth / frontView.clientHeight;
+            const frontViewHeight = 4;
+            const frontViewWidth = frontViewHeight * frontAspect;
+            
+            frontCamera = new THREE.OrthographicCamera(
+                -frontViewWidth / 2, 
+                frontViewWidth / 2, 
+                frontViewHeight / 2, 
+                -frontViewHeight / 2, 
+                0.1, 
+                100
+            );
+            frontCamera.position.set(0, 0, 10);
+            frontCamera.lookAt(0, 0, 0);
+            
+            // 侧视图相机 (正交投影)
+            const sideView = document.getElementById('side-view');
+            const sideAspect = sideView.clientWidth / sideView.clientHeight;
+            const sideViewHeight = 4;
+            const sideViewWidth = sideViewHeight * sideAspect;
+            
+            sideCamera = new THREE.OrthographicCamera(
+                -sideViewWidth / 2, 
+                sideViewWidth / 2, 
+                sideViewHeight / 2, 
+                -sideViewHeight / 2, 
+                0.1, 
+                100
+            );
+            sideCamera.position.set(10, 0, 0);
+            sideCamera.lookAt(0, 0, 0);
+            sideCamera.up.set(0, 1, 0);
+        }
+
+        // 初始化所有渲染器
+        function initRenderers() {
+            // 主渲染器
+            const mainView = document.getElementById('main-view');
+            mainRenderer = new THREE.WebGLRenderer({ antialias: true });
+            mainRenderer.setPixelRatio(window.devicePixelRatio);
+            mainRenderer.setSize(mainView.clientWidth, mainView.clientHeight);
+            mainView.appendChild(mainRenderer.domElement);
+            
+            // 俯视渲染器
+            const topView = document.getElementById('top-view');
+            topRenderer = new THREE.WebGLRenderer({ antialias: true });
+            topRenderer.setPixelRatio(window.devicePixelRatio);
+            topRenderer.setSize(topView.clientWidth, topView.clientHeight);
+            topView.appendChild(topRenderer.domElement);
+            
+            // 正视图渲染器
+            const frontView = document.getElementById('front-view');
+            frontRenderer = new THREE.WebGLRenderer({ antialias: true });
+            frontRenderer.setPixelRatio(window.devicePixelRatio);
+            frontRenderer.setSize(frontView.clientWidth, frontView.clientHeight);
+            frontView.appendChild(frontRenderer.domElement);
+            
+            // 侧视图渲染器
+            const sideView = document.getElementById('side-view');
+            sideRenderer = new THREE.WebGLRenderer({ antialias: true });
+            sideRenderer.setPixelRatio(window.devicePixelRatio);
+            sideRenderer.setSize(sideView.clientWidth, sideView.clientHeight);
+            sideView.appendChild(sideRenderer.domElement);
+        }
+
+        // 初始化控制器
+        function initControls() {
+            // 主视图控制器
+            mainControls = new OrbitControls(mainCamera, mainRenderer.domElement);
+            mainControls.enableDamping = true;
+            mainControls.dampingFactor = 0.05;
+            mainControls.minDistance = 3;
+            mainControls.maxDistance = 15;
+            mainControls.maxPolarAngle = Math.PI * 0.9; // 限制不能完全从底部看
+            
+            // 双击重置视角
+            mainRenderer.domElement.addEventListener('dblclick', (event) => {
+                if (event.target === mainRenderer.domElement) {
+                    resetMainCamera();
+                }
+            });
+        }
+
+        // 初始化网格和坐标轴
+        function initGridsAndAxes() {
+            // 主场景网格和坐标轴
+            const mainGridHelper = new THREE.GridHelper(10, 10, 0x888888, 0x888888);
+            mainGridHelper.position.y = -0.01; // 稍微下移避免z-fighting
+            mainScene.add(mainGridHelper);
+            
+            const mainAxesHelper = new THREE.AxesHelper(3);
+            mainScene.add(mainAxesHelper);
+            
+            // 俯视场景网格 (5x5)
+            const topGridHelper = new THREE.GridHelper(gridSize, gridSize, 0x000000, 0x000000);
+            topGridHelper.position.y = -0.01;
+            topScene.add(topGridHelper);
+            
+            // 添加网格边框
+            const topBorder = createGridBorder(gridSize);
+            topScene.add(topBorder);
+            
+            // 正视图和侧视图不需要网格
+        }
+
+        // 创建网格边框
+        function createGridBorder(size) {
+            const borderGeometry = new THREE.BufferGeometry();
+            const halfSize = size / 2;
+            const vertices = new Float32Array([
+                -halfSize, 0, -halfSize,
+                halfSize, 0, -halfSize,
+                halfSize, 0, halfSize,
+                -halfSize, 0, halfSize,
+                -halfSize, 0, -halfSize
+            ]);
+            borderGeometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+            const borderMaterial = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 });
+            return new THREE.Line(borderGeometry, borderMaterial);
+        }
+
+        // 初始化事件监听
+        function initEventListeners() {
+            // 窗口大小调整
+            window.addEventListener('resize', onWindowResize);
+            
+            // 控制按钮
+            document.getElementById('reset-scene').addEventListener('click', resetScene);
+            document.getElementById('reset-camera').addEventListener('click', resetMainCamera);
+            
+            // 俯视图点击事件 (添加/移除立方体)
+            const topView = document.getElementById('top-view');
+            topView.addEventListener('mousedown', onTopViewMouseDown);
+            
+            // 触摸屏支持
+            topView.addEventListener('touchstart', onTopViewTouch, { passive: false });
+        }
+
+        // 俯视图鼠标点击事件
+        function onTopViewMouseDown(event) {
+            event.preventDefault();
+            
+            // 只处理左键和右键
+            if (event.button !== 0 && event.button !== 2) return;
+            
+            // 获取点击位置
+            const rect = topView.getBoundingClientRect();
+            const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            
+            handleTopViewClick(x, y, event.button === 2);
+        }
+
+        // 俯视图触摸事件
+        function onTopViewTouch(event) {
+            event.preventDefault();
+            
+            if (event.touches.length !== 1) return;
+            
+            const touch = event.touches[0];
+            const rect = topView.getBoundingClientRect();
+            const x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+            const y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
+            
+            // 触摸视为左键点击
+            handleTopViewClick(x, y, false);
+        }
+
+        // 处理俯视图点击
+        function handleTopViewClick(normalizedX, normalizedY, isRightClick) {
+            // 创建射线投射器
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(
+                new THREE.Vector2(normalizedX, normalizedY),
+                topCamera
+            );
+            
+            // 计算射线与地面的交点
+            const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+            const intersection = new THREE.Vector3();
+            raycaster.ray.intersectPlane(groundPlane, intersection);
+            
+            // 转换为网格坐标
+            const halfSize = gridSize / 2;
+            const gridX = Math.floor(intersection.x + halfSize);
+            const gridZ = Math.floor(intersection.z + halfSize);
+            
+            // 检查是否在网格范围内
+            if (gridX < 0 || gridX >= gridSize || gridZ < 0 || gridZ >= gridSize) return;
+            
+            // 处理添加或移除立方体
+            if (isRightClick) {
+                removeCubeAt(gridX, gridZ);
+            } else {
+                addCubeAt(gridX, gridZ);
+            }
+            
+            // 更新轮廓线
+            updateOutlines();
+        }
+
+        // 在指定网格位置添加立方体
+        function addCubeAt(x, z) {
+            // 计算当前高度
+            let currentHeight = 0;
+            cubeGroup.children.forEach(cube => {
+                if (Math.floor(cube.position.x) === x && Math.floor(cube.position.z) === z) {
+                    currentHeight++;
+                }
+            });
+            
+            // 检查高度限制
+            if (currentHeight >= maxHeight) return;
+            
+            // 创建立方体
+            const geometry = new THREE.BoxBufferGeometry(cubeSize, cubeSize, cubeSize);
+            const material = new THREE.MeshLambertMaterial({ 
+                color: cubeColor,
+                transparent: true,
+                opacity: 0.9
+            });
+            const cube = new THREE.Mesh(geometry, material);
+            
+            // 设置位置 (居中在网格单元)
+            cube.position.set(
+                x - (gridSize - 1) / 2,
+                currentHeight + 0.5,
+                z - (gridSize - 1) / 2
+            );
+            
+            // 添加到场景
+            cubeGroup.add(cube);
+        }
+
+        // 移除指定网格位置顶部的立方体
+        function removeCubeAt(x, z) {
+            // 找出该位置的所有立方体
+            const cubes = [];
+            cubeGroup.children.forEach(cube => {
+                if (Math.floor(cube.position.x) === x && Math.floor(cube.position.z) === z) {
+                    cubes.push(cube);
+                }
+            });
+            
+            // 如果没有立方体则返回
+            if (cubes.length === 0) return;
+            
+            // 按高度排序
+            cubes.sort((a, b) => a.position.y - b.position.y);
+            
+            // 移除最高的立方体
+            cubeGroup.remove(cubes[cubes.length - 1]);
+        }
+
+        // 更新所有视图的轮廓线
+        function updateOutlines() {
+            // 清除旧轮廓线
+            outlineGroup.children.forEach(child => outlineGroup.remove(child));
+            
+            // 计算每个视图的轮廓
+            const topOutlines = calculateTopOutlines();
+            const frontOutlines = calculateFrontOutlines();
+            const sideOutlines = calculateSideOutlines();
+            
+            // 添加轮廓线到场景
+            topOutlines.forEach(line => {
+                line.material.color.setHex(outlineColors.top);
+                outlineGroup.add(line);
+            });
+            
+            frontOutlines.forEach(line => {
+                line.material.color.setHex(outlineColors.front);
+                outlineGroup.add(line);
+            });
+            
+            sideOutlines.forEach(line => {
+                line.material.color.setHex(outlineColors.side);
+                outlineGroup.add(line);
+            });
+        }
+
+        // 计算俯视图轮廓
+        function calculateTopOutlines() {
+            const outlines = [];
+            const halfSize = (gridSize - 1) / 2;
+            
+            // 遍历每个网格单元
+            for (let x = 0; x < gridSize; x++) {
+                for (let z = 0; z < gridSize; z++) {
+                    // 计算该列的高度
+                    let height = 0;
+                    cubeGroup.children.forEach(cube => {
+                        if (Math.floor(cube.position.x) === x && Math.floor(cube.position.z) === z) {
+                            height++;
+                        }
+                    });
+                    
+                    if (height === 0) continue;
+                    
+                    // 创建轮廓线 (矩形)
+                    const outlineGeometry = new THREE.BufferGeometry();
+                    const centerX = x - halfSize;
+                    const centerZ = z - halfSize;
+                    const half = cubeSize / 2;
+                    
+                    const vertices = new Float32Array([
+                        centerX - half, 0.01, centerZ - half,
+                        centerX + half, 0.01, centerZ - half,
+                        centerX + half, 0.01, centerZ + half,
+                        centerX - half, 0.01, centerZ + half,
+                        centerX - half, 0.01, centerZ - half
+                    ]);
+                    
+                    outlineGeometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+                    const outlineMaterial = new THREE.LineBasicMaterial({ linewidth: 2 });
+                    const outline = new THREE.Line(outlineGeometry, outlineMaterial);
+                    
+                    outlines.push(outline);
+                }
+            }
+            
+            return outlines;
+        }
+
+        // 计算正视图轮廓
+        function calculateFrontOutlines() {
+            const outlines = [];
+            const halfSize = (gridSize - 1) / 2;
+            
+            // 按X轴分组计算每列的最大高度
+            const columnHeights = new Array(gridSize).fill(0);
+            cubeGroup.children.forEach(cube => {
+                const x = Math.floor(cube.position.x);
+                const y = Math.floor(cube.position.y);
+                if (y + 1 > columnHeights[x]) {
+                    columnHeights[x] = y + 1;
+                }
+            });
+            
+            // 创建轮廓线 (类似条形图)
+            for (let x = 0; x < gridSize; x++) {
+                if (columnHeights[x] === 0) continue;
+                
+                const outlineGeometry = new THREE.BufferGeometry();
+                const centerX = x - halfSize;
+                const half = cubeSize / 2;
+                
+                const vertices = new Float32Array([
+                    centerX - half, 0.01, 0,
+                    centerX + half, 0.01, 0,
+                    centerX + half, 0.01, columnHeights[x],
+                    centerX - half, 0.01, columnHeights[x],
+                    centerX - half, 0.01, 0
+                ]);
+                
+                outlineGeometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+                const outlineMaterial = new THREE.LineBasicMaterial({ linewidth: 2 });
+                const outline = new THREE.Line(outlineGeometry, outlineMaterial);
+                
+                outlines.push(outline);
+            }
+            
+            return outlines;
+        }
+
+        // 计算侧视图轮廓
+        function calculateSideOutlines() {
+            const outlines = [];
+            const halfSize = (gridSize - 1) / 2;
+            
+            // 按Z轴分组计算每列的最大高度
+            const columnHeights = new Array(gridSize).fill(0);
+            cubeGroup.children.forEach(cube => {
+                const z = Math.floor(cube.position.z);
+                const y = Math.floor(cube.position.y);
+                if (y + 1 > columnHeights[z]) {
+                    columnHeights[z] = y + 1;
+                }
+            });
+            
+            // 创建轮廓线 (类似条形图)
+            for (let z = 0; z < gridSize; z++) {
+                if (columnHeights[z] === 0) continue;
+                
+                const outlineGeometry = new THREE.BufferGeometry();
+                const centerZ = z - halfSize;
+                const half = cubeSize / 2;
+                
+                const vertices = new Float32Array([
+                    0, 0.01, centerZ - half,
+                    0, 0.01, centerZ + half,
+                    0, columnHeights[z], centerZ + half,
+                    0, columnHeights[z], centerZ - half,
+                    0, 0.01, centerZ - half
+                ]);
+                
+                outlineGeometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+                const outlineMaterial = new THREE.LineBasicMaterial({ linewidth: 2 });
+                const outline = new THREE.Line(outlineGeometry, outlineMaterial);
+                
+                outlines.push(outline);
+            }
+            
+            return outlines;
+        }
+
+        // 窗口大小调整
+        function onWindowResize() {
+            // 主视图
+            const mainView = document.getElementById('main-view');
+            mainCamera.aspect = mainView.clientWidth / mainView.clientHeight;
+            mainCamera.updateProjectionMatrix();
+            mainRenderer.setSize(mainView.clientWidth, mainView.clientHeight);
+            
+            // 俯视图
+            const topView = document.getElementById('top-view');
+            const topAspect = topView.clientWidth / topView.clientHeight;
+            const topViewHeight = 4;
+            const topViewWidth = topViewHeight * topAspect;
+            
+            topCamera.left = -topViewWidth / 2;
+            topCamera.right = topViewWidth / 2;
+            topCamera.top = topViewHeight / 2;
+            topCamera.bottom = -topViewHeight / 2;
+            topCamera.updateProjectionMatrix();
+            topRenderer.setSize(topView.clientWidth, topView.clientHeight);
+            
+            // 正视图
+            const frontView = document.getElementById('front-view');
+            const frontAspect = frontView.clientWidth / frontView.clientHeight;
+            const frontViewHeight = 4;
+            const frontViewWidth = frontViewHeight * frontAspect;
+            
+            frontCamera.left = -frontViewWidth / 2;
+            frontCamera.right = frontViewWidth / 2;
+            frontCamera.top = frontViewHeight / 2;
+            frontCamera.bottom = -frontViewHeight / 2;
+            frontCamera.updateProjectionMatrix();
+            frontRenderer.setSize(frontView.clientWidth, frontView.clientHeight);
+            
+            // 侧视图
+            const sideView = document.getElementById('side-view');
+            const sideAspect = sideView.clientWidth / sideView.clientHeight;
+            const sideViewHeight = 4;
+            const sideViewWidth = sideViewHeight * sideAspect;
+            
+            sideCamera.left = -sideViewWidth / 2;
+            sideCamera.right = sideViewWidth / 2;
+            sideCamera.top = sideViewHeight / 2;
+            sideCamera.bottom = -sideViewHeight / 2;
+            sideCamera.updateProjectionMatrix();
+            sideRenderer.setSize(sideView.clientWidth, sideView.clientHeight);
+        }
+
+        // 重置场景
+        function resetScene() {
+            // 移除所有立方体
+            cubeGroup.children.forEach(child => cubeGroup.remove(child));
+            
+            // 更新轮廓线
+            updateOutlines();
+        }
+
+        // 重置主相机
+        function resetMainCamera() {
+            mainCamera.position.set(5, 5, 5);
+            mainCamera.lookAt(0, 0, 0);
+            mainControls.update();
+        }
+
+        // 动画循环
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // 更新控制器
+            mainControls.update();
+            
+            // 渲染所有视图
+            mainRenderer.render(mainScene, mainCamera);
+            topRenderer.render(topScene, topCamera);
+            frontRenderer.render(frontScene, frontCamera);
+            sideRenderer.render(sideScene, sideCamera);
+        }
+
+        // 初始化灯光
+        function initLights() {
+            // 主场景灯光
+            const mainLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
+            mainLight1.position.set(1, 1, 1);
+            mainScene.add(mainLight1);
+            
+            const mainLight2 = new THREE.DirectionalLight(0xffffff, 0.5);
+            mainLight2.position.set(-1, -1, -1);
+            mainScene.add(mainLight2);
+            
+            const mainAmbient = new THREE.AmbientLight(0x404040);
+            mainScene.add(mainAmbient);
+            
+            // 俯视图灯光
+            const topLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            topLight.position.set(0, 1, 0);
+            topScene.add(topLight);
+            
+            const topAmbient = new THREE.AmbientLight(0x404040);
+            topScene.add(topAmbient);
+            
+            // 正视图和侧视图灯光
+            const orthoLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            orthoLight.position.set(0, 0, 1);
+            frontScene.add(orthoLight);
+            sideScene.add(orthoLight.clone());
+            
+            const orthoAmbient = new THREE.AmbientLight(0x404040);
+            frontScene.add(orthoAmbient);
+            sideScene.add(orthoAmbient.clone());
+        }
+
+        // 启动程序
+        initLights();
+        init();
+    </script>
+</body>
+</html>
