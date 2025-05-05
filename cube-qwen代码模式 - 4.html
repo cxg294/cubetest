@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cuboid Stack and Views</title>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+        #topView { position: absolute; left: 20px; top: 20px; z-index: 10; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <canvas id="topView"></canvas>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Top view setup
+        const topViewCanvas = document.getElementById('topView');
+        const topViewCtx = topViewCanvas.getContext('2d');
+        topViewCanvas.width = 400;
+        topViewCanvas.height = 400;
+
+        const gridSize = 10;
+        const gridSpacing = 40;
+        let cubeStack = Array.from({ length: gridSize }, () => Array(gridSize).fill(0));
+
+        function drawTopView() {
+            topViewCtx.clearRect(0, 0, topViewCanvas.width, topViewCanvas.height);
+            for (let x = 0; x < gridSize; x++) {
+                for (let y = 0; y < gridSize; y++) {
+                    topViewCtx.fillStyle = cubeStack[x][y] > 0 ? 'blue' : 'gray';
+                    topViewCtx.fillRect(x * gridSpacing, y * gridSpacing, gridSpacing, gridSpacing);
+                    if (cubeStack[x][y] > 0) {
+                        topViewCtx.fillStyle = 'white';
+                        topViewCtx.font = '16px Arial';
+                        topViewCtx.textAlign = 'center';
+                        topViewCtx.fillText(cubeStack[x][y], x * gridSpacing + gridSpacing / 2, y * gridSpacing + gridSpacing / 2 + 5);
+                    }
+                }
+            }
+        }
+
+        topViewCanvas.addEventListener('click', (event) => {
+            const rect = topViewCanvas.getBoundingClientRect();
+            const x = Math.floor((event.clientX - rect.left) / gridSpacing);
+            const y = Math.floor((event.clientY - rect.top) / gridSpacing);
+            if (x >= 0 && x < gridSize && y >= 0 && y < gridSize) {
+                cubeStack[x][y]++;
+                updateScene();
+            }
+        });
+
+        // Camera setup
+        camera.position.z = 200;
+
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0x404040); // soft white light
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        directionalLight.position.set(1, 1, 1).normalize();
+        scene.add(directionalLight);
+
+        // Render loop
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        function createCube(x, y, z) {
+            const geometry = new THREE.BoxGeometry();
+            const material = new THREE.MeshPhongMaterial({ color: 0x00ff00 });
+            const cube = new THREE.Mesh(geometry, material);
+            cube.position.set(x * 10 - 45, y * 10 - 45, z * 10);
+            return cube;
+        }
+
+        function updateScene() {
+            while (scene.children.length > 2) {
+                scene.remove(scene.children[2]);
+            }
+            for (let x = 0; x < gridSize; x++) {
+                for (let y = 0; y < gridSize; y++) {
+                    for (let z = 0; z < cubeStack[x][y]; z++) {
+                        const cube = createCube(x, y, z);
+                        scene.add(cube);
+                    }
+                }
+            }
+            drawTopView();
+        }
+
+        updateScene();
+
+        window.addEventListener('resize', onWindowResize, false);
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    </script>
+</body>
+</html>
+
+
+

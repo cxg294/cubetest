@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>堆积正方体三视图演示器</title>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #container {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+        }
+        #top-view {
+            width: 300px;
+            height: 100%;
+            background-color: #f0f0f0;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow: auto;
+        }
+        #threejs-container {
+            flex-grow: 1;
+            position: relative;
+        }
+        #views-container {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .view {
+            width: 200px;
+            height: 200px;
+            background-color: rgba(255, 255, 255, 0.7);
+            border: 1px solid #ccc;
+        }
+        .grid {
+            display: grid;
+            gap: 2px;
+            margin-top: 20px;
+        }
+        .grid-cell {
+            width: 30px;
+            height: 30px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        .grid-cell:hover {
+            background-color: #e0e0e0;
+        }
+        .controls {
+            margin-top: 20px;
+        }
+        button {
+            padding: 8px 12px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        h2 {
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="top-view">
+            <h2>俯视图控制</h2>
+            <p>点击格子添加/移除方块</p>
+            <div id="grid-container" class="grid"></div>
+            <div class="controls">
+                <button id="reset-btn">重置</button>
+                <button id="random-btn">随机生成</button>
+            </div>
+        </div>
+        <div id="threejs-container">
+            <div id="views-container">
+                <div id="front-view" class="view"></div>
+                <div id="side-view" class="view"></div>
+                <div id="top-view-render" class="view"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化变量
+        const gridSize = 5;
+        const maxHeight = 5;
+        let cubes = Array(gridSize).fill().map(() => Array(gridSize).fill(0));
+        let scene, mainCamera, renderer;
+        let frontViewScene, frontViewCamera, frontViewRenderer;
+        let sideViewScene, sideViewCamera, sideViewRenderer;
+        let topViewScene, topViewCamera, topViewRenderer;
+        let controls;
+        let cubeMeshes = [];
+
+        // 初始化主场景
+        function initMainScene() {
+            const container = document.getElementById('threejs-container');
+            
+            // 创建场景
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf0f0f0);
+            
+            // 创建相机
+            mainCamera = new THREE.PerspectiveCamera(75, (window.innerWidth - 300) / window.innerHeight, 0.1, 1000);
+            mainCamera.position.set(10, 10, 10);
+            mainCamera.lookAt(0, 0, 0);
+            
+            // 创建渲染器
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+            
+            // 添加轨道控制器
+            controls = new THREE.OrbitControls(mainCamera, renderer.domElement);
+            controls.enableDamping = true;
+            
+            // 添加光源
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 7);
+            scene.add(directionalLight);
+            
+            // 添加坐标轴辅助
+            const axesHelper = new THREE.AxesHelper(5);
+            scene.add(axesHelper);
+            
+            // 添加地面网格
+            const gridHelper = new THREE.GridHelper(10, 10);
+            scene.add(gridHelper);
+            
+            // 窗口大小调整
+            window.addEventListener('resize', () => {
+                const container = document.getElementById('threejs-container');
+                mainCamera.aspect = (window.innerWidth - 300) / window.innerHeight;
+                mainCamera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+                
+                // 更新视图渲染器大小
+                frontViewRenderer.setSize(200, 200);
+                sideViewRenderer.setSize(200, 200);
+                topViewRenderer.setSize(200, 200);
+            });
+        }
+
+        // 初始化前视图
+        function initFrontView() {
+            frontViewScene = new THREE.Scene();
+            frontViewScene.background = new THREE.Color(0xffffff);
+            
+            frontViewCamera = new THREE.OrthographicCamera(-gridSize/2, gridSize/2, maxHeight, 0, 0.1, 100);
+            frontViewCamera.position.set(0, 0, 10);
+            frontViewCamera.lookAt(0, 0, 0);
+            
+            frontViewRenderer = new THREE.WebGLRenderer({ antialias: true });
+            frontViewRenderer.setSize(200, 200);
+            document.getElementById('front-view').appendChild(frontViewRenderer.domElement);
+        }
+
+        // 初始化侧视图
+        function initSideView() {
+            sideViewScene = new THREE.Scene();
+            sideViewScene.background = new THREE.Color(0xffffff);
+            
+            sideViewCamera = new THREE.OrthographicCamera(-gridSize/2, gridSize/2, maxHeight, 0, 0.1, 100);
+            sideViewCamera.position.set(10, 0, 0);
+            sideViewCamera.lookAt(0, 0, 0);
+            
+            sideViewRenderer = new THREE.WebGLRenderer({ antialias: true });
+            sideViewRenderer.setSize(200, 200);
+            document.getElementById('side-view').appendChild(sideViewRenderer.domElement);
+        }
+
+        // 初始化俯视图
+        function initTopView() {
+            topViewScene = new THREE.Scene();
+            topViewScene.background = new THREE.Color(0xffffff);
+            
+            topViewCamera = new THREE.OrthographicCamera(-gridSize/2, gridSize/2, gridSize/2, -gridSize/2, 0.1, 100);
+            topViewCamera.position.set(0, 10, 0);
+            topViewCamera.lookAt(0, 0, 0);
+            topViewCamera.up.set(0, 0, -1);
+            
+            topViewRenderer = new THREE.WebGLRenderer({ antialias: true });
+            topViewRenderer.setSize(200, 200);
+            document.getElementById('top-view-render').appendChild(topViewRenderer.domElement);
+        }
+
+        // 创建控制网格
+        function createControlGrid() {
+            const gridContainer = document.getElementById('grid-container');
+            gridContainer.style.gridTemplateColumns = `repeat(${gridSize}, 30px)`;
+            
+            for (let z = 0; z < gridSize; z++) {
+                for (let x = 0; x < gridSize; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell';
+                    cell.dataset.x = x;
+                    cell.dataset.z = z;
+                    cell.textContent = cubes[x][z];
+                    cell.addEventListener('click', () => {
+                        const x = parseInt(cell.dataset.x);
+                        const z = parseInt(cell.dataset.z);
+                        
+                        if (cubes[x][z] < maxHeight) {
+                            cubes[x][z]++;
+                        } else {
+                            cubes[x][z] = 0;
+                        }
+                        
+                        cell.textContent = cubes[x][z];
+                        updateCubes();
+                    });
+                    gridContainer.appendChild(cell);
+                }
+            }
+        }
+
+        // 更新立方体
+        function updateCubes() {
+            // 清除现有立方体
+            cubeMeshes.forEach(mesh => {
+                scene.remove(mesh);
+                frontViewScene.remove(mesh.clone());
+                sideViewScene.remove(mesh.clone());
+                topViewScene.remove(mesh.clone());
+            });
+            cubeMeshes = [];
+            
+            // 创建新立方体
+            const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+            const cubeMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x3498db,
+                transparent: true,
+                opacity: 0.9,
+                shininess: 100
+            });
+            
+            for (let x = 0; x < gridSize; x++) {
+                for (let z = 0; z < gridSize; z++) {
+                    for (let y = 0; y < cubes[x][z]; y++) {
+                        const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+                        cube.position.set(
+                            x - Math.floor(gridSize / 2) + 0.5,
+                            y + 0.5,
+                            z - Math.floor(gridSize / 2) + 0.5
+                        );
+                        
+                        scene.add(cube);
+                        cubeMeshes.push(cube);
+                        
+                        // 添加到前视图
+                        const frontCube = cube.clone();
+                        frontViewScene.add(frontCube);
+                        
+                        // 添加到侧视图
+                        const sideCube = cube.clone();
+                        sideViewScene.add(sideCube);
+                        
+                        // 添加到俯视图
+                        const topCube = cube.clone();
+                        topViewScene.add(topCube);
+                    }
+                }
+            }
+            
+            // 更新网格显示
+            const cells = document.querySelectorAll('.grid-cell');
+            cells.forEach(cell => {
+                const x = parseInt(cell.dataset.x);
+                const z = parseInt(cell.dataset.z);
+                cell.textContent = cubes[x][z];
+            });
+        }
+
+        // 重置网格
+        function resetGrid() {
+            cubes = Array(gridSize).fill().map(() => Array(gridSize).fill(0));
+            updateCubes();
+        }
+
+        // 随机生成
+        function randomGenerate() {
+            for (let x = 0; x < gridSize; x++) {
+                for (let z = 0; z < gridSize; z++) {
+                    cubes[x][z] = Math.floor(Math.random() * (maxHeight + 1));
+                }
+            }
+            updateCubes();
+        }
+
+        // 动画循环
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            controls.update();
+            renderer.render(scene, mainCamera);
+            frontViewRenderer.render(frontViewScene, frontViewCamera);
+            sideViewRenderer.render(sideViewScene, sideViewCamera);
+            topViewRenderer.render(topViewScene, topViewCamera);
+        }
+
+        // 初始化
+        function init() {
+            initMainScene();
+            initFrontView();
+            initSideView();
+            initTopView();
+            createControlGrid();
+            
+            // 添加按钮事件
+            document.getElementById('reset-btn').addEventListener('click', resetGrid);
+            document.getElementById('random-btn').addEventListener('click', randomGenerate);
+            
+            // 开始动画
+            animate();
+        }
+
+        // 启动
+        init();
+    </script>
+</body>
+</html>

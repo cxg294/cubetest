@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>堆积正方体与三视图演示</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            width: 30%;
+            height: 300px;
+            border: 1px solid #ccc;
+            margin: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="mainScene" class="container"></div>
+    <div id="frontView" class="container"></div>
+    <div id="topView" class="container"></div>
+    <div id="sideView" class="container"></div>
+    <button id="addCube">添加正方体</button>
+    <button id="removeCube">移除正方体</button>
+
+    <script>
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth / 3, window.innerHeight / 3);
+        document.getElementById('mainScene').appendChild(renderer.domElement);
+
+        const cubeGeometry = new THREE.BoxGeometry();
+        const cubeMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        const cubes = [];
+
+        function addCube() {
+            const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+            cube.position.x = (cubes.length % 3) * 2;
+            cube.position.y = Math.floor(cubes.length / 3) % 3 * 2;
+            cube.position.z = Math.floor(cubes.length / 9) * 2;
+            scene.add(cube);
+            cubes.push(cube);
+            updateViews();
+        }
+
+        function removeCube() {
+            if (cubes.length > 0) {
+                const cube = cubes.pop();
+                scene.remove(cube);
+                updateViews();
+            }
+        }
+
+        const frontScene = new THREE.Scene();
+        const frontCamera = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 1000);
+        frontCamera.position.z = 10;
+        const frontRenderer = new THREE.WebGLRenderer();
+        frontRenderer.setSize(window.innerWidth / 3, window.innerHeight / 3);
+        document.getElementById('frontView').appendChild(frontRenderer.domElement);
+
+        const topScene = new THREE.Scene();
+        const topCamera = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 1000);
+        topCamera.position.y = 10;
+        topCamera.rotation.x = -Math.PI / 2;
+        const topRenderer = new THREE.WebGLRenderer();
+        topRenderer.setSize(window.innerWidth / 3, window.innerHeight / 3);
+        document.getElementById('topView').appendChild(topRenderer.domElement);
+
+        const sideScene = new THREE.Scene();
+        const sideCamera = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 1000);
+        sideCamera.position.x = 10;
+        sideCamera.rotation.y = -Math.PI / 2;
+        const sideRenderer = new THREE.WebGLRenderer();
+        sideRenderer.setSize(window.innerWidth / 3, window.innerHeight / 3);
+        document.getElementById('sideView').appendChild(sideRenderer.domElement);
+
+        function updateViews() {
+            frontScene.children = [];
+            topScene.children = [];
+            sideScene.children = [];
+
+            cubes.forEach(cube => {
+                const frontCube = cube.clone();
+                frontScene.add(frontCube);
+
+                const topCube = cube.clone();
+                topScene.add(topCube);
+
+                const sideCube = cube.clone();
+                sideScene.add(sideCube);
+            });
+
+            frontRenderer.render(frontScene, frontCamera);
+            topRenderer.render(topScene, topCamera);
+            sideRenderer.render(sideScene, sideCamera);
+        }
+
+        camera.position.z = 5;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        document.getElementById('addCube').addEventListener('click', addCube);
+        document.getElementById('removeCube').addEventListener('click', removeCube);
+    </script>
+</body>
+
+</html>
+    

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cuboid Stack and Views</title>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+        .view-container {
+            display: flex;
+            justify-content: space-around;
+            padding: 10px;
+        }
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+<div id="controls">
+    <button onclick="addCube()">Add Cube</button>
+    <button onclick="removeCube()">Remove Cube</button>
+</div>
+
+<div class="view-container">
+    <canvas id="main-view"></canvas>
+    <canvas id="top-view"></canvas>
+    <canvas id="front-view"></canvas>
+    <canvas id="side-view"></canvas>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+    let scene, camera, renderer;
+    const cubes = [];
+    const cubeSize = 1;
+
+    function init() {
+        // Main view setup
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 10;
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight / 2);
+        document.getElementById('main-view').appendChild(renderer.domElement);
+
+        // Top view setup
+        const topScene = new THREE.Scene();
+        const topCamera = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 1000);
+        topCamera.position.set(0, 5, 0);
+        topCamera.lookAt(new THREE.Vector3(0, 0, 0));
+        const topRenderer = new THREE.WebGLRenderer({ antialias: true });
+        topRenderer.setSize(window.innerWidth / 4, window.innerHeight / 4);
+        document.getElementById('top-view').appendChild(topRenderer.domElement);
+
+        // Front view setup
+        const frontScene = new THREE.Scene();
+        const frontCamera = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 1000);
+        frontCamera.position.set(0, 0, 5);
+        frontCamera.lookAt(new THREE.Vector3(0, 0, 0));
+        const frontRenderer = new THREE.WebGLRenderer({ antialias: true });
+        frontRenderer.setSize(window.innerWidth / 4, window.innerHeight / 4);
+        document.getElementById('front-view').appendChild(frontRenderer.domElement);
+
+        // Side view setup
+        const sideScene = new THREE.Scene();
+        const sideCamera = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 1000);
+        sideCamera.position.set(5, 0, 0);
+        sideCamera.lookAt(new THREE.Vector3(0, 0, 0));
+        const sideRenderer = new THREE.WebGLRenderer({ antialias: true });
+        sideRenderer.setSize(window.innerWidth / 4, window.innerHeight / 4);
+        document.getElementById('side-view').appendChild(sideRenderer.domElement);
+
+        // Add light to scenes
+        [scene, topScene, frontScene, sideScene].forEach(s => {
+            const ambientLight = new THREE.AmbientLight(0x404040); // soft white light
+            s.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight.position.set(1, 1, 1).normalize();
+            s.add(directionalLight);
+        });
+
+        animate();
+
+        function addCube() {
+            const geometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+            const material = new THREE.MeshLambertMaterial({ color: Math.random() * 0xffffff });
+            const cube = new THREE.Mesh(geometry, material);
+            cube.position.x = (Math.random() - 0.5) * 5;
+            cube.position.y = (Math.random() - 0.5) * 5;
+            cube.position.z = (Math.random() - 0.5) * 5;
+            cubes.push(cube);
+            [scene, topScene, frontScene, sideScene].forEach(s => s.add(cube));
+        }
+
+        function removeCube() {
+            if (cubes.length > 0) {
+                const cube = cubes.pop();
+                [scene, topScene, frontScene, sideScene].forEach(s => s.remove(cube));
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+            topRenderer.render(topScene, topCamera);
+            frontRenderer.render(frontScene, frontCamera);
+            sideRenderer.render(sideScene, sideCamera);
+        }
+    }
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight / 2);
+    }, false);
+
+    init();
+</script>
+</body>
+</html>
+
+
+

@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>堆积正方体三视图演示</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        #container {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+        }
+        #top-view-container {
+            width: 300px;
+            height: 100%;
+            background-color: #f0f0f0;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow: auto;
+        }
+        #main-view {
+            flex-grow: 1;
+            height: 100%;
+            position: relative;
+        }
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .grid {
+            display: grid;
+            gap: 2px;
+            margin-top: 20px;
+        }
+        .grid-cell {
+            background-color: #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .grid-cell:hover {
+            background-color: #ccc;
+        }
+        .height-indicator {
+            font-size: 12px;
+            color: #333;
+        }
+        h2 {
+            margin-top: 0;
+        }
+        .view-label {
+            position: absolute;
+            color: white;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 5px 10px;
+            border-radius: 5px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="top-view-container">
+            <h2>俯视图控制</h2>
+            <p>点击格子增加高度，右键点击减少高度</p>
+            <div id="top-view-grid" class="grid"></div>
+        </div>
+        <div id="main-view">
+            <div id="controls">
+                <button id="reset-btn">重置</button>
+                <button id="toggle-views-btn">切换视图</button>
+            </div>
+            <div id="main-scene"></div>
+            <div id="front-view" class="view-label" style="bottom: 10px; left: 50%; transform: translateX(-50%);">前视图</div>
+            <div id="side-view" class="view-label" style="top: 50%; right: 10px; transform: translateY(-50%);">侧视图</div>
+            <div id="ortho-view" class="view-label" style="top: 10px; left: 50%; transform: translateX(-50%);">正交视图</div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+    <script>
+        // 配置参数
+        const config = {
+            gridSize: 5, // 网格大小 (5x5)
+            maxHeight: 5, // 最大高度
+            cubeSize: 0.9, // 立方体大小
+            gap: 0.05, // 立方体之间的间隙
+            colors: {
+                cube: 0x4CAF50,
+                hover: 0xFFC107,
+                grid: 0x666666,
+                frontView: 0x2196F3,
+                sideView: 0xE91E63,
+                orthoView: 0x9C27B0
+            }
+        };
+
+        // 全局变量
+        let mainScene, mainCamera, mainRenderer;
+        let frontViewScene, frontViewCamera, frontViewRenderer;
+        let sideViewScene, sideViewCamera, sideViewRenderer;
+        let orthoViewScene, orthoViewCamera, orthoViewRenderer;
+        let controls;
+        let cubes = [];
+        let gridCells = [];
+        let currentView = 'main'; // 'main', 'front', 'side', 'ortho'
+
+        // 初始化主场景
+        function initMainScene() {
+            const container = document.getElementById('main-scene');
+            
+            // 创建场景
+            mainScene = new THREE.Scene();
+            mainScene.background = new THREE.Color(0xf0f0f0);
+            
+            // 创建相机
+            mainCamera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+            mainCamera.position.set(10, 10, 10);
+            mainCamera.lookAt(0, 0, 0);
+            
+            // 创建渲染器
+            mainRenderer = new THREE.WebGLRenderer({ antialias: true });
+            mainRenderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(mainRenderer.domElement);
+            
+            // 添加轨道控制器
+            controls = new THREE.OrbitControls(mainCamera, mainRenderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            
+            // 添加光源
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            mainScene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 7);
+            mainScene.add(directionalLight);
+            
+            // 添加坐标轴辅助
+            const axesHelper = new THREE.AxesHelper(5);
+            mainScene.add(axesHelper);
+            
+            // 添加网格辅助
+            const gridHelper = new THREE.GridHelper(config.gridSize, config.gridSize);
+            mainScene.add(gridHelper);
+            
+            // 窗口大小调整
+            window.addEventListener('resize', () => {
+                mainCamera.aspect = container.clientWidth / container.clientHeight;
+                mainCamera.updateProjectionMatrix();
+                mainRenderer.setSize(container.clientWidth, container.clientHeight);
+            });
+        }
+
+        // 初始化前视图
+        function initFrontView() {
+            frontViewScene = new THREE.Scene();
+            frontViewScene.background = new THREE.Color(0x333333);
+            
+            frontViewCamera = new THREE.OrthographicCamera(
+                -config.gridSize / 2, config.gridSize / 2,
+                config.gridSize / 2, -config.gridSize / 2,
+                0.1, 100
+            );
+            frontViewCamera.position.set(0, 0, 10);
+            frontViewCamera.lookAt(0, 0, 0);
+            
+            frontViewRenderer = new THREE.WebGLRenderer({ antialias: true });
+            frontViewRenderer.setSize(300, 300);
+            frontViewRenderer.domElement.style.position = 'absolute';
+            frontViewRenderer.domElement.style.bottom = '10px';
+            frontViewRenderer.domElement.style.left = '50%';
+            frontViewRenderer.domElement.style.transform = 'translateX(-50%)';
+            frontViewRenderer.domElement.style.border = '2px solid ' + '#' + config.colors.frontView.toString(16);
+            document.getElementById('main-view').appendChild(frontViewRenderer.domElement);
+            
+            // 添加点击事件
+            frontViewRenderer.domElement.addEventListener('click', () => {
+                if (currentView !== 'front') {
+                    showView('front');
+                }
+            });
+        }
+
+        // 初始化侧视图
+        function initSideView() {
+            sideViewScene = new THREE.Scene();
+            sideViewScene.background = new THREE.Color(0x333333);
+            
+            sideViewCamera = new THREE.OrthographicCamera(
+                -config.gridSize / 2, config.gridSize / 2,
+                config.gridSize / 2, -config.gridSize / 2,
+                0.1, 100
+            );
+            sideViewCamera.position.set(10, 0, 0);
+            sideViewCamera.lookAt(0, 0, 0);
+            
+            sideViewRenderer = new THREE.WebGLRenderer({ antialias: true });
+            sideViewRenderer.setSize(300, 300);
+            sideViewRenderer.domElement.style.position = 'absolute';
+            sideViewRenderer.domElement.style.top = '50%';
+            sideViewRenderer.domElement.style.right = '10px';
+            sideViewRenderer.domElement.style.transform = 'translateY(-50%)';
+            sideViewRenderer.domElement.style.border = '2px solid ' + '#' + config.colors.sideView.toString(16);
+            document.getElementById('main-view').appendChild(sideViewRenderer.domElement);
+            
+            // 添加点击事件
+            sideViewRenderer.domElement.addEventListener('click', () => {
+                if (currentView !== 'side') {
+                    showView('side');
+                }
+            });
+        }
+
+        // 初始化正交视图
+        function initOrthoView() {
+            orthoViewScene = new THREE.Scene();
+            orthoViewScene.background = new THREE.Color(0x333333);
+            
+            orthoViewCamera = new THREE.OrthographicCamera(
+                -config.gridSize / 2, config.gridSize / 2,
+                config.gridSize / 2, -config.gridSize / 2,
+                0.1, 100
+            );
+            orthoViewCamera.position.set(5, 10, 5);
+            orthoViewCamera.lookAt(0, 0, 0);
+            
+            orthoViewRenderer = new THREE.WebGLRenderer({ antialias: true });
+            orthoViewRenderer.setSize(300, 300);
+            orthoViewRenderer.domElement.style.position = 'absolute';
+            orthoViewRenderer.domElement.style.top = '10px';
+            orthoViewRenderer.domElement.style.left = '50%';
+            orthoViewRenderer.domElement.style.transform = 'translateX(-50%)';
+            orthoViewRenderer.domElement.style.border = '2px solid ' + '#' + config.colors.orthoView.toString(16);
+            document.getElementById('main-view').appendChild(orthoViewRenderer.domElement);
+            
+            // 添加点击事件
+            orthoViewRenderer.domElement.addEventListener('click', () => {
+                if (currentView !== 'ortho') {
+                    showView('ortho');
+                }
+            });
+        }
+
+        // 初始化俯视图网格
+        function initTopViewGrid() {
+            const gridContainer = document.getElementById('top-view-grid');
+            
+            // 设置网格样式
+            gridContainer.style.gridTemplateColumns = `repeat(${config.gridSize}, 1fr)`;
+            gridContainer.style.gridTemplateRows = `repeat(${config.gridSize}, 1fr)`;
+            
+            // 创建网格单元格
+            for (let z = 0; z < config.gridSize; z++) {
+                for (let x = 0; x < config.gridSize; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell';
+                    cell.dataset.x = x;
+                    cell.dataset.z = z;
+                    
+                    const heightIndicator = document.createElement('div');
+                    heightIndicator.className = 'height-indicator';
+                    heightIndicator.textContent = '0';
+                    cell.appendChild(heightIndicator);
+                    
+                    // 添加点击事件
+                    cell.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const x = parseInt(cell.dataset.x);
+                        const z = parseInt(cell.dataset.z);
+                        addCube(x, z);
+                    });
+                    
+                    cell.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const x = parseInt(cell.dataset.x);
+                        const z = parseInt(cell.dataset.z);
+                        removeCube(x, z);
+                    });
+                    
+                    gridContainer.appendChild(cell);
+                    gridCells.push({ element: cell, x, z });
+                }
+            }
+        }
+
+        // 添加立方体
+        function addCube(x, z) {
+            // 查找当前位置的最高立方体
+            let currentHeight = 0;
+            for (const cube of cubes) {
+                if (cube.x === x && cube.z === z) {
+                    if (cube.y >= currentHeight) {
+                        currentHeight = cube.y + 1;
+                    }
+                }
+            }
+            
+            // 检查是否达到最大高度
+            if (currentHeight >= config.maxHeight) {
+                return;
+            }
+            
+            // 创建立方体
+            const geometry = new THREE.BoxGeometry(config.cubeSize, config.cubeSize, config.cubeSize);
+            const material = new THREE.MeshPhongMaterial({ color: config.colors.cube });
+            const cubeMesh = new THREE.Mesh(geometry, material);
+            
+            // 计算位置
+            const offset = (config.gridSize - 1) / 2;
+            const posX = (x - offset) * (config.cubeSize + config.gap);
+            const posY = currentHeight * (config.cubeSize + config.gap) + config.cubeSize / 2;
+            const posZ = (z - offset) * (config.cubeSize + config.gap);
+            
+            cubeMesh.position.set(posX, posY, posZ);
+            mainScene.add(cubeMesh);
+            
+            // 保存立方体信息
+            cubes.push({
+                mesh: cubeMesh,
+                x, y: currentHeight, z
+            });
+            
+            // 更新网格显示
+            updateGridCell(x, z);
+            
+            // 更新所有视图
+            updateAllViews();
+        }
+
+        // 移除立方体
+        function removeCube(x, z) {
+            // 查找当前位置的最高立方体
+            let highestCube = null;
+            let highestY = -1;
+            
+            for (let i = 0; i < cubes.length; i++) {
+                const cube = cubes[i];
+                if (cube.x === x && cube.z === z && cube.y > highestY) {
+                    highestY = cube.y;
+                    highestCube = { index: i, cube };
+                }
+            }
+            
+            // 如果没有立方体可移除
+            if (!highestCube) {
+                return;
+            }
+            
+            // 从场景中移除
+            mainScene.remove(highestCube.cube.mesh);
+            
+            // 从数组中移除
+            cubes.splice(highestCube.index, 1);
+            
+            // 更新网格显示
+            updateGridCell(x, z);
+            
+            // 更新所有视图
+            updateAllViews();
+        }
+
+        // 更新网格单元格显示
+        function updateGridCell(x, z) {
+            // 计算当前位置的立方体数量
+            let height = 0;
+            for (const cube of cubes) {
+                if (cube.x === x && cube.z === z) {
+                    height = Math.max(height, cube.y + 1);
+                }
+            }
+            
+            // 更新对应的网格单元格
+            const cell = gridCells.find(c => c.x === x && c.z === z);
+            if (cell) {
+                const heightIndicator = cell.element.querySelector('.height-indicator');
+                heightIndicator.textContent = height;
+                
+                // 更新背景颜色基于高度
+                const intensity = height / config.maxHeight * 0.7 + 0.3;
+                cell.element.style.backgroundColor = `rgb(${Math.floor(100 * intensity)}, ${Math.floor(180 * intensity)}, ${Math.floor(100 * intensity)})`;
+            }
+        }
+
+        // 更新所有视图
+        function updateAllViews() {
+            updateMainView();
+            updateFrontView();
+            updateSideView();
+            updateOrthoView();
+        }
+
+        // 更新主视图
+        function updateMainView() {
+            // 主视图已经在实时渲染中更新
+        }
+
+        // 更新前视图
+        function updateFrontView() {
+            frontViewScene.clear();
+            
+            // 添加光源
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            frontViewScene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(0, 0, 10);
+            frontViewScene.add(directionalLight);
+            
+            // 绘制前视图投影
+            const offset = (config.gridSize - 1) / 2;
+            
+            // 按x坐标分组，找出每个x位置的最大y值
+            const maxHeights = {};
+            for (const cube of cubes) {
+                const key = `${cube.x}_${cube.z}`;
+                if (!maxHeights[key] || cube.y > maxHeights[key].y) {
+                    maxHeights[key] = { y: cube.y, x: cube.x, z: cube.z };
+                }
+            }
+            
+            // 绘制前视图（只看x和y）
+            for (const key in maxHeights) {
+                const { x, y, z } = maxHeights[key];
+                const posX = (x - offset) * (config.cubeSize + config.gap);
+                const posY = (y + 1) * (config.cubeSize + config.gap) / 2;
+                
+                const width = config.cubeSize;
+                const height = (y + 1) * (config.cubeSize + config.gap);
+                const depth = config.cubeSize;
+                
+                const geometry = new THREE.BoxGeometry(width, height, depth);
+                const material = new THREE.MeshPhongMaterial({ 
+                    color: config.colors.frontView,
+                    transparent: true,
+                    opacity: 0.7
+                });
+                const cube = new THREE.Mesh(geometry, material);
+                cube.position.set(posX, posY, 0);
+                frontViewScene.add(cube);
+            }
+            
+            // 添加网格辅助
+            const gridHelper = new THREE.GridHelper(config.gridSize, config.gridSize);
+            gridHelper.rotation.x = Math.PI / 2;
+            frontViewScene.add(gridHelper);
+        }
+
+        // 更新侧视图
+        function updateSideView() {
+            sideViewScene.clear();
+            
+            // 添加光源
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            sideViewScene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 0, 0);
+            sideViewScene.add(directionalLight);
+            
+            // 绘制侧视图投影
+            const offset = (config.gridSize - 1) / 2;
+            
+            // 按z坐标分组，找出每个z位置的最大y值
+            const maxHeights = {};
+            for (const cube of cubes) {
+                const key = `${cube.x}_${cube.z}`;
+                if (!maxHeights[key] || cube.y > maxHeights[key].y) {
+                    maxHeights[key] = { y: cube.y, x: cube.x, z: cube.z };
+                }
+            }
+            
+            // 绘制侧视图（只看z和y）
+            for (const key in maxHeights) {
+                const { x, y, z } = maxHeights[key];
+                const posZ = (z - offset) * (config.cubeSize + config.gap);
+                const posY = (y + 1) * (config.cubeSize + config.gap) / 2;
+                
+                const width = config.cubeSize;
+                const height = (y + 1) * (config.cubeSize + config.gap);
+                const depth = config.cubeSize;
+                
+                const geometry = new THREE.BoxGeometry(width, height, depth);
+                const material = new THREE.MeshPhongMaterial({ 
+                    color: config.colors.sideView,
+                    transparent: true,
+                    opacity: 0.7
+                });
+                const cube = new THREE.Mesh(geometry, material);
+                cube.position.set(0, posY, posZ);
+                sideViewScene.add(cube);
+            }
+            
+            // 添加网格辅助
+            const gridHelper = new THREE.GridHelper(config.gridSize, config.gridSize);
+            gridHelper.rotation.z = Math.PI / 2;
+            sideViewScene.add(gridHelper);
+        }
+
+        // 更新正交视图
+        function updateOrthoView() {
+            orthoViewScene.clear();
+            
+            // 添加光源
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            orthoViewScene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 5);
+            orthoViewScene.add(directionalLight);
+            
+            // 复制主场景中的立方体到正交视图
+            for (const cube of cubes) {
+                const geometry = new THREE.BoxGeometry(config.cubeSize, config.cubeSize, config.cubeSize);
+                const material = new THREE.MeshPhongMaterial({ 
+                    color: config.colors.orthoView,
+                    transparent: true,
+                    opacity: 0.7
+                });
+                const cubeMesh = new THREE.Mesh(geometry, material);
+                
+                // 复制位置
+                cubeMesh.position.copy(cube.mesh.position);
+                orthoViewScene.add(cubeMesh);
+            }
+            
+            // 添加网格辅助
+            const gridHelper = new THREE.GridHelper(config.gridSize, config.gridSize);
+            orthoViewScene.add(gridHelper);
+        }
+
+        // 显示指定视图
+        function showView(view) {
+            currentView = view;
+            
+            // 隐藏所有渲染器
+            mainRenderer.domElement.style.display = 'none';
+            frontViewRenderer.domElement.style.display = 'none';
+            sideViewRenderer.domElement.style.display = 'none';
+            orthoViewRenderer.domElement.style.display = 'none';
+            
+            // 显示选中的渲染器
+            if (view === 'main') {
+                mainRenderer.domElement.style.display = 'block';
+                controls.enabled = true;
+            } else if (view === 'front') {
+                frontViewRenderer.domElement.style.display = 'block';
+                controls.enabled = false;
+            } else if (view === 'side') {
+                sideViewRenderer.domElement.style.display = 'block';
+                controls.enabled = false;
+            } else if (view === 'ortho') {
+                orthoViewRenderer.domElement.style.display = 'block';
+                controls.enabled = false;
+            }
+        }
+
+        // 重置场景
+        function resetScene() {
+            // 移除所有立方体
+            for (const cube of cubes) {
+                mainScene.remove(cube.mesh);
+            }
+            cubes = [];
+            
+            // 重置网格显示
+            for (const cell of gridCells) {
+                const heightIndicator = cell.element.querySelector('.height-indicator');
+                heightIndicator.textContent = '0';
+                cell.element.style.backgroundColor = '#ddd';
+            }
+            
+            // 更新所有视图
+            updateAllViews();
+            
+            // 返回主视图
+            showView('main');
+        }
+
+        // 动画循环
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // 更新控制器
+            controls.update();
+            
+            // 渲染当前视图
+            if (currentView === 'main') {
+                mainRenderer.render(mainScene, mainCamera);
+            } else if (currentView === 'front') {
+                frontViewRenderer.render(frontViewScene, frontViewCamera);
+            } else if (currentView === 'side') {
+                sideViewRenderer.render(sideViewScene, sideViewCamera);
+            } else if (currentView === 'ortho') {
+                orthoViewRenderer.render(orthoViewScene, orthoViewCamera);
+            }
+        }
+
+        // 初始化
+        function init() {
+            initMainScene();
+            initFrontView();
+            initSideView();
+            initOrthoView();
+            initTopViewGrid();
+            
+            // 添加初始立方体
+            addCube(2, 2);
+            addCube(2, 2);
+            addCube(2, 3);
+            addCube(3, 2);
+            
+            // 设置按钮事件
+            document.getElementById('reset-btn').addEventListener('click', resetScene);
+            document.getElementById('toggle-views-btn').addEventListener('click', () => {
+                if (currentView === 'main') {
+                    showView('front');
+                } else if (currentView === 'front') {
+                    showView('side');
+                } else if (currentView === 'side') {
+                    showView('ortho');
+                } else {
+                    showView('main');
+                }
+            });
+            
+            // 开始动画
+            animate();
+            
+            // 初始显示主视图
+            showView('main');
+        }
+
+        // 启动应用
+        window.onload = init;
+    </script>
+</body>
+</html>

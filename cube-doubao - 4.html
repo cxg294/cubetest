@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>堆积正方体及三视图</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #main-container {
+            display: flex;
+            height: 100vh;
+        }
+
+        #top-view-container {
+            width: 25%;
+            height: 100vh;
+            position: relative;
+        }
+
+        #scene-container {
+            width: 75%;
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .view {
+            width: 50%;
+            height: 50vh;
+            position: relative;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="main-container">
+        <div id="top-view-container"></div>
+        <div id="scene-container">
+            <div id="front-view" class="view"></div>
+            <div id="side-view" class="view"></div>
+            <div id="top-view" class="view"></div>
+            <div id="isometric-view" class="view"></div>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const gridSize = 5;
+        const cubeSize = 1;
+        const cubeData = Array.from({ length: gridSize }, () => Array(gridSize).fill(0));
+
+        const topViewContainer = document.getElementById('top-view-container');
+        const frontViewContainer = document.getElementById('front-view');
+        const sideViewContainer = document.getElementById('side-view');
+        const topViewSceneContainer = document.getElementById('top-view');
+        const isometricViewContainer = document.getElementById('isometric-view');
+
+        function createScene(container, cameraPosition, target) {
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, container.offsetWidth / container.offsetHeight, 0.1, 1000);
+            camera.position.copy(cameraPosition);
+            camera.lookAt(target);
+
+            const renderer = new THREE.WebGLRenderer();
+            renderer.setSize(container.offsetWidth, container.offsetHeight);
+            container.appendChild(renderer.domElement);
+
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(1, 1, 1);
+            scene.add(directionalLight);
+
+            return { scene, camera, renderer, controls };
+        }
+
+        const topView = createScene(topViewContainer, new THREE.Vector3(0, 10, 0), new THREE.Vector3(0, 0, 0));
+        const frontView = createScene(frontViewContainer, new THREE.Vector3(0, 0, 10), new THREE.Vector3(0, 0, 0));
+        const sideView = createScene(sideViewContainer, new THREE.Vector3(10, 0, 0), new THREE.Vector3(0, 0, 0));
+        const topViewScene = createScene(topViewSceneContainer, new THREE.Vector3(0, 10, 0), new THREE.Vector3(0, 0, 0));
+        const isometricView = createScene(isometricViewContainer, new THREE.Vector3(5, 5, 5), new THREE.Vector3(0, 0, 0));
+
+        function createGrid(scene) {
+            const gridHelper = new THREE.GridHelper(gridSize * cubeSize, gridSize);
+            scene.add(gridHelper);
+        }
+
+        createGrid(topView.scene);
+        createGrid(frontView.scene);
+        createGrid(sideView.scene);
+        createGrid(topViewScene.scene);
+        createGrid(isometricView.scene);
+
+        function createCube(x, y, z) {
+            const geometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+            const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+            const cube = new THREE.Mesh(geometry, material);
+            cube.position.set(x * cubeSize, z * cubeSize, y * cubeSize);
+            return cube;
+        }
+
+        function updateScenes() {
+            [topView.scene, frontView.scene, sideView.scene, topViewScene.scene, isometricView.scene].forEach(scene => {
+                scene.children = scene.children.filter(child => !(child instanceof THREE.Mesh));
+            });
+
+            createGrid(topView.scene);
+            createGrid(frontView.scene);
+            createGrid(sideView.scene);
+            createGrid(topViewScene.scene);
+            createGrid(isometricView.scene);
+
+            for (let x = 0; x < gridSize; x++) {
+                for (let y = 0; y < gridSize; y++) {
+                    const height = cubeData[x][y];
+                    for (let z = 0; z < height; z++) {
+                        const cube = createCube(x, y, z);
+                        topView.scene.add(cube);
+                        frontView.scene.add(cube.clone());
+                        sideView.scene.add(cube.clone());
+                        topViewScene.scene.add(cube.clone());
+                        isometricView.scene.add(cube.clone());
+                    }
+                }
+            }
+        }
+
+        function renderScenes() {
+            requestAnimationFrame(renderScenes);
+
+            topView.renderer.render(topView.scene, topView.camera);
+            frontView.renderer.render(frontView.scene, frontView.camera);
+            sideView.renderer.render(sideView.scene, sideView.camera);
+            topViewScene.renderer.render(topViewScene.scene, topViewScene.camera);
+            isometricView.renderer.render(isometricView.scene, isometricView.camera);
+        }
+
+        topViewContainer.addEventListener('click', function (event) {
+            const rect = topViewContainer.getBoundingClientRect();
+            const mouseX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            const mouseY = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2(mouseX, mouseY);
+            raycaster.setFromCamera(mouse, topView.camera);
+
+            const intersects = raycaster.intersectObjects(topView.scene.children);
+            if (intersects.length > 0) {
+                const point = intersects[0].point;
+                const x = Math.floor(point.x / cubeSize);
+                const y = Math.floor(point.z / cubeSize);
+
+                cubeData[x][y] = cubeData[x][y] === 0 ? 1 : 0;
+                updateScenes();
+            }
+        });
+
+        updateScenes();
+        renderScenes();
+    </script>
+</body>
+
+</html>
+    

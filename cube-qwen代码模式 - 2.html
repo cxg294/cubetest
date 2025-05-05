@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>观察物体 - 正方体堆积与三视图</title>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: Arial, sans-serif; }
+    canvas { display: block; }
+    
+    .view {
+      position: absolute;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+    
+    #mainView {
+      width: 100vw;
+      height: 100vh;
+      top: 0;
+      left: 0;
+    }
+    
+    .mini-view {
+      width: 30%;
+      height: 30%;
+      border: 2px solid #666;
+    }
+    
+    #frontView {
+      top: 10px;
+      right: 10px;
+    }
+    
+    #topView {
+      bottom: 10px;
+      right: 10px;
+    }
+    
+    #sideView {
+      top: 10px;
+      left: 10px;
+    }
+    
+    #controls {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 10px;
+      border-radius: 5px;
+    }
+    
+    #instructions {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 10px;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <!-- 主视图 -->
+  <canvas id="mainView" class="view"></canvas>
+
+  <!-- 小窗口视图 -->
+  <canvas id="frontView" class="view mini-view"></canvas>
+  <canvas id="topView" class="view mini-view"></canvas>
+  <canvas id="sideView" class="view mini-view"></canvas>
+
+  <!-- 控制面板 -->
+  <div id="controls">
+    <button id="addCubeBtn">添加立方体</button>
+    <button id="removeCubeBtn">移除立方体</button>
+    <p>操作说明：点击添加/移除按钮增加或删除立方体。点击位置由三个小视图指示。</p>
+  </div>
+
+  <!-- 操作说明 -->
+  <div id="instructions">
+    <strong>视图说明：</strong><br/>
+    主视图：右下角视图<br/>
+    俯视图：右上角视图<br/>
+    侧视图：左下角视图
+  </div>
+
+  <!-- 引入 Three.js -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
+  
+  <script>
+    // 创建场景、相机和渲染器的函数
+    function createSceneAndCamera(isOrthographic = false, aspect = 1) {
+      const scene = new THREE.Scene();
+      
+      if (isOrthographic) {
+        // 正交相机配置
+        const cameraHeight = 10;
+        const cameraWidth = cameraHeight * aspect;
+        const halfWidth = cameraWidth / 2;
+        const halfHeight = cameraHeight / 2;
+        
+        const camera = new THREE.OrthographicCamera(
+          -halfWidth, halfWidth,
+          halfHeight, -halfHeight,
+          0.1, 100
+        );
+        return { scene, camera };
+      } else {
+        // 透视相机配置
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        return { scene, camera };
+      }
+    }
+
+    // 主视图设置
+    const mainCanvas = document.getElementById('mainView');
+    const mainRenderer = new THREE.WebGLRenderer({ canvas: mainCanvas, antialias: true });
+    mainRenderer.setSize(window.innerWidth, window.innerHeight);
+    
+    const { scene: mainScene, camera: mainCamera } = createSceneAndCamera();
+    mainCamera.position.set(10, 10, 10);
+    mainCamera.lookAt(0, 0, 0);
+    
+    const mainControls = new THREE.OrbitControls(mainCamera, mainCanvas);
+    mainControls.update();
+
+    // 添加光源
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    mainScene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    directionalLight.position.set(5, 10, 7.5);
+    mainScene.add(directionalLight);
+
+    // 辅助线
+    const gridHelper = new THREE.GridHelper(10, 10);
+    mainScene.add(gridHelper);
+
+    // 创建其他视图
+    const frontCanvas = document.getElementById('frontView');
+    const frontRenderer = new THREE.WebGLRenderer({ canvas: frontCanvas, antialias: true });
+    
+    const { scene: frontScene, camera: frontCamera } = createSceneAndCamera(true, frontCanvas.width / frontCanvas.height);
+    frontCamera.position.set(0, 0, 10);
+    frontCamera.lookAt(0, 0, 0);
+    frontScene.add(ambientLight.clone());
+    frontScene.add(directionalLight.clone());
+    frontScene.add(gridHelper.clone());
+    
+    const topCanvas = document.getElementById('topView');
+    const topRenderer = new THREE.WebGLRenderer({ canvas: topCanvas, antialias: true });
+    
+    const { scene: topScene, camera: topCamera } = createSceneAndCamera(true, topCanvas.width / topCanvas.height);
+    topCamera.position.set(0, 10, 0);
+    topCamera.lookAt(0, 0, 0);
+    topScene.add(ambientLight.clone());
+    topScene.add(directionalLight.clone());
+    topScene.add(gridHelper.clone());
+    
+    const sideCanvas = document.getElementById('sideView');
+    const sideRenderer = new THREE.WebGLRenderer({ canvas: sideCanvas, antialias: true });
+    
+    const { scene: sideScene, camera: sideCamera } = createSceneAndCamera(true, sideCanvas.width / sideCanvas.height);
+    sideCamera.position.set(10, 0, 0);
+    sideCamera.lookAt(0, 0, 0);
+    sideScene.add(ambientLight.clone());
+    sideScene.add(directionalLight.clone());
+    sideScene.add(gridHelper.clone());
+
+    // 立方体集合
+    const cubes = [];
+
+    // 添加立方体函数
+    function addCube(x = 0, y = 0, z = 0) {
+      const geometry = new THREE.BoxGeometry(1, 1, 1);
+      const material = new THREE.MeshLambertMaterial({ 
+        color: Math.random() * 0x888888 + 0x888888,
+        transparent: true,
+        opacity: 0.9
+      });
+      const cube = new THREE.Mesh(geometry, material);
+      cube.position.set(x, y, z);
+      
+      // 检查是否与现有立方体重叠
+      for (const existingCube of cubes) {
+        if (existingCube.position.distanceTo(cube.position) < 1) {
+          alert("不能与其他立方体重叠！");
+          return;
+        }
+      }
+      
+      mainScene.add(cube);
+      frontScene.add(cube.clone());
+      topScene.add(cube.clone());
+      sideScene.add(cube.clone());
+      cubes.push(cube);
+    }
+
+    // 移除立方体函数
+    function removeCube() {
+      if (cubes.length > 0) {
+        const lastCube = cubes.pop();
+        mainScene.remove(lastCube);
+        frontScene.remove(lastCube.clone());
+        topScene.remove(lastCube.clone());
+        sideScene.remove(lastCube.clone());
+      }
+    }
+
+    // 动画循环
+    function animate() {
+      requestAnimationFrame(animate);
+      
+      // 更新相机比例
+      const mainWidth = window.innerWidth;
+      const mainHeight = window.innerHeight;
+      mainCamera.aspect = mainWidth / mainHeight;
+      mainCamera.updateProjectionMatrix();
+      mainRenderer.setSize(mainWidth, mainHeight);
+      
+      // 渲染主视图
+      mainRenderer.render(mainScene, mainCamera);
+      
+      // 渲染小视图
+      frontRenderer.render(frontScene, frontCamera);
+      topRenderer.render(topScene, topCamera);
+      sideRenderer.render(sideScene, sideCamera);
+    }
+
+    // 处理窗口大小变化
+    window.addEventListener('resize', () => {
+      // 主视图
+      mainCamera.aspect = window.innerWidth / window.innerHeight;
+      mainCamera.updateProjectionMatrix();
+      mainRenderer.setSize(window.innerWidth, window.innerHeight);
+      
+      // 前视图
+      frontCamera.aspect = frontCanvas.width / frontCanvas.height;
+      frontCamera.updateProjectionMatrix();
+      frontRenderer.setSize(frontCanvas.width, frontCanvas.height);
+      
+      // 顶视图
+      topCamera.aspect = topCanvas.width / topCanvas.height;
+      topCamera.updateProjectionMatrix();
+      topRenderer.setSize(topCanvas.width, topCanvas.height);
+      
+      // 侧视图
+      sideCamera.aspect = sideCanvas.width / sideCanvas.height;
+      sideCamera.updateProjectionMatrix();
+      sideRenderer.setSize(sideCanvas.width, sideCanvas.height);
+    });
+
+    // 初始化立方体
+    for (let i = 0; i < 3; i++) {
+      addCube(Math.floor(Math.random() * 4), Math.floor(Math.random() * 4), Math.floor(Math.random() * 4));
+    }
+
+    // 绑定按钮事件
+    document.getElementById('addCubeBtn').addEventListener('click', () => {
+      // 在随机位置添加新立方体
+      let attempts = 0;
+      let placed = false;
+      
+      while (!placed && attempts < 100) {
+        const x = Math.floor(Math.random() * 5);
+        const y = Math.floor(Math.random() * 5);
+        const z = Math.floor(Math.random() * 5);
+        
+        // 检查该位置是否已经有立方体
+        let occupied = false;
+        for (const cube of cubes) {
+          if (cube.position.x === x && cube.position.y === y && cube.position.z === z) {
+            occupied = true;
+            break;
+          }
+        }
+        
+        if (!occupied) {
+          addCube(x, y, z);
+          placed = true;
+        }
+        attempts++;
+      }
+      
+      if (!placed) {
+        alert("没有可用空间添加更多立方体！");
+      }
+    });
+    
+    document.getElementById('removeCubeBtn').addEventListener('click', removeCube);
+
+    // 启动动画
+    animate();
+  </script>
+</body>
+</html>

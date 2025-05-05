@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>堆积正方体及三视图演示</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            background-color: #f0f0f0;
+        }
+
+        #mainScene {
+            width: 50%;
+            height: 50vh;
+        }
+
+        .viewScene {
+            width: 25%;
+            height: 25vh;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="mainScene"></div>
+    <div id="frontView" class="viewScene"></div>
+    <div id="topView" class="viewScene"></div>
+    <div id="sideView" class="viewScene"></div>
+    <button id="addCube">添加正方体</button>
+    <button id="removeCube">移除正方体</button>
+
+    <script>
+        // 主场景
+        const mainScene = new THREE.Scene();
+        const mainCamera = new THREE.PerspectiveCamera(75, window.innerWidth / 2 / window.innerHeight / 2, 0.1, 1000);
+        const mainRenderer = new THREE.WebGLRenderer();
+        mainRenderer.setSize(window.innerWidth / 2, window.innerHeight / 2);
+        document.getElementById('mainScene').appendChild(mainRenderer.domElement);
+
+        // 三视图场景
+        const frontScene = new THREE.Scene();
+        const frontCamera = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 1000);
+        const frontRenderer = new THREE.WebGLRenderer();
+        frontRenderer.setSize(window.innerWidth / 4, window.innerHeight / 4);
+        document.getElementById('frontView').appendChild(frontRenderer.domElement);
+
+        const topScene = new THREE.Scene();
+        const topCamera = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 1000);
+        const topRenderer = new THREE.WebGLRenderer();
+        topRenderer.setSize(window.innerWidth / 4, window.innerHeight / 4);
+        document.getElementById('topView').appendChild(topRenderer.domElement);
+
+        const sideScene = new THREE.Scene();
+        const sideCamera = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 1000);
+        const sideRenderer = new THREE.WebGLRenderer();
+        sideRenderer.setSize(window.innerWidth / 4, window.innerHeight / 4);
+        document.getElementById('sideView').appendChild(sideRenderer.domElement);
+
+        // 相机位置
+        mainCamera.position.z = 5;
+        frontCamera.position.z = 5;
+        topCamera.position.y = 5;
+        topCamera.rotation.x = -Math.PI / 2;
+        sideCamera.position.x = 5;
+        sideCamera.rotation.y = -Math.PI / 2;
+
+        // 光照
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        mainScene.add(ambientLight);
+        frontScene.add(ambientLight.clone());
+        topScene.add(ambientLight.clone());
+        sideScene.add(ambientLight.clone());
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(1, 1, 1);
+        mainScene.add(directionalLight);
+        frontScene.add(directionalLight.clone());
+        topScene.add(directionalLight.clone());
+        sideScene.add(directionalLight.clone());
+
+        // 正方体材质和几何体
+        const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+        const cubeMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+
+        // 正方体数组
+        const cubes = [];
+
+        // 添加正方体函数
+        function addCube() {
+            const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+            cube.position.set(cubes.length % 3 - 1, Math.floor(cubes.length / 3) % 3 - 1, Math.floor(cubes.length / 9) - 1);
+            mainScene.add(cube);
+            frontScene.add(cube.clone());
+            topScene.add(cube.clone());
+            sideScene.add(cube.clone());
+            cubes.push(cube);
+        }
+
+        // 移除正方体函数
+        function removeCube() {
+            if (cubes.length > 0) {
+                const cube = cubes.pop();
+                mainScene.remove(cube);
+                frontScene.remove(cube.clone());
+                topScene.remove(cube.clone());
+                sideScene.remove(cube.clone());
+            }
+        }
+
+        // 按钮事件
+        document.getElementById('addCube').addEventListener('click', addCube);
+        document.getElementById('removeCube').addEventListener('click', removeCube);
+
+        // 渲染函数
+        function animate() {
+            requestAnimationFrame(animate);
+
+            mainRenderer.render(mainScene, mainCamera);
+            frontRenderer.render(frontScene, frontCamera);
+            topRenderer.render(topScene, topCamera);
+            sideRenderer.render(sideScene, sideCamera);
+        }
+
+        animate();
+    </script>
+</body>
+
+</html>
+    

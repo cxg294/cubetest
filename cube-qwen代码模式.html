@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>三视图演示</title>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        button {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <button onclick="setCameraPosition('front')">正面</button>
+        <button onclick="setCameraPosition('top')">顶部</button>
+        <button onclick="setCameraPosition('side')">侧面</button>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        let scene, camera, renderer;
+
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+            renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // 添加灯光
+            const light = new THREE.DirectionalLight(0xffffff, 1);
+            light.position.set(1, 1, 1).normalize();
+            scene.add(light);
+
+            // 创建立方体堆叠
+            createCubes();
+
+            camera.position.z = 5;
+
+            animate();
+        }
+
+        function createCubes() {
+            const geometry = new THREE.BoxGeometry();
+            const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+
+            // 堆叠的立方体位置示例
+            const positions = [
+                [0, 0, 0],
+                [1, 0, 0],
+                [0, 1, 0],
+                [0, 0, 1],
+                [1, 1, 0],
+                [1, 0, 1],
+                [0, 1, 1],
+                [1, 1, 1]
+            ];
+
+            positions.forEach(pos => {
+                const cube = new THREE.Mesh(geometry, material);
+                cube.position.set(...pos);
+                scene.add(cube);
+            });
+        }
+
+        function setCameraPosition(view) {
+            switch (view) {
+                case 'front':
+                    camera.position.set(0, 0, 5);
+                    break;
+                case 'top':
+                    camera.position.set(0, 5, 0);
+                    break;
+                case 'side':
+                    camera.position.set(5, 0, 0);
+                    break;
+            }
+            camera.lookAt(scene.position);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+
+        init();
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
+
+
+

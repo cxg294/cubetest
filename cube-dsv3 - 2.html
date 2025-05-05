@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>观察物体 - 三视图演示</title>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            overflow: hidden;
+        }
+        #container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        #header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px;
+            text-align: center;
+        }
+        #content {
+            display: flex;
+            flex: 1;
+        }
+        #main-view {
+            flex: 3;
+            position: relative;
+        }
+        #side-views {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: #e0e0e0;
+            padding: 10px;
+        }
+        .view-container {
+            flex: 1;
+            margin: 5px;
+            border: 1px solid #ccc;
+            background-color: white;
+            position: relative;
+        }
+        .view-label {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        #controls {
+            display: flex;
+            justify-content: center;
+            padding: 10px;
+            background-color: #ddd;
+        }
+        button {
+            margin: 0 5px;
+            padding: 8px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #instructions {
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-top: 1px solid #ddd;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="header">
+            <h1>观察物体 - 三视图演示</h1>
+        </div>
+        <div id="content">
+            <div id="main-view"></div>
+            <div id="side-views">
+                <div class="view-container" id="front-view">
+                    <div class="view-label">正视图</div>
+                </div>
+                <div class="view-container" id="side-view">
+                    <div class="view-label">侧视图</div>
+                </div>
+                <div class="view-container" id="top-view">
+                    <div class="view-label">俯视图</div>
+                </div>
+            </div>
+        </div>
+        <div id="controls">
+            <button id="add-cube">添加正方体</button>
+            <button id="remove-cube">删除正方体</button>
+            <button id="reset">重置</button>
+        </div>
+        <div id="instructions">
+            <p>操作说明：</p>
+            <ul>
+                <li>点击"添加正方体"按钮，然后在主视图中点击网格添加小正方体</li>
+                <li>点击"删除正方体"按钮，然后在主视图中点击要删除的小正方体</li>
+                <li>在主视图中拖动鼠标可以旋转视角</li>
+                <li>滚动鼠标滚轮可以缩放</li>
+                <li>右侧显示的是物体的正视图、侧视图和俯视图</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // 主场景
+        const mainScene = new THREE.Scene();
+        mainScene.background = new THREE.Color(0xf0f0f0);
+        
+        // 正视图场景
+        const frontScene = new THREE.Scene();
+        frontScene.background = new THREE.Color(0xffffff);
+        
+        // 侧视图场景
+        const sideScene = new THREE.Scene();
+        sideScene.background = new THREE.Color(0xffffff);
+        
+        // 俯视图场景
+        const topScene = new THREE.Scene();
+        topScene.background = new THREE.Color(0xffffff);
+        
+        // 主相机
+        const mainCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        mainCamera.position.set(10, 10, 10);
+        
+        // 正视图相机
+        const frontCamera = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 100);
+        frontCamera.position.set(0, 0, 10);
+        frontCamera.lookAt(0, 0, 0);
+        
+        // 侧视图相机
+        const sideCamera = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 100);
+        sideCamera.position.set(10, 0, 0);
+        sideCamera.lookAt(0, 0, 0);
+        
+        // 俯视图相机
+        const topCamera = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 100);
+        topCamera.position.set(0, 10, 0);
+        topCamera.lookAt(0, 0, 0);
+        
+        // 主渲染器
+        const mainRenderer = new THREE.WebGLRenderer({ antialias: true });
+        mainRenderer.setPixelRatio(window.devicePixelRatio);
+        mainRenderer.setSize(document.getElementById('main-view').clientWidth, document.getElementById('main-view').clientHeight);
+        document.getElementById('main-view').appendChild(mainRenderer.domElement);
+        
+        // 正视图渲染器
+        const frontRenderer = new THREE.WebGLRenderer({ antialias: true });
+        frontRenderer.setSize(document.getElementById('front-view').clientWidth, document.getElementById('front-view').clientHeight);
+        document.getElementById('front-view').appendChild(frontRenderer.domElement);
+        
+        // 侧视图渲染器
+        const sideRenderer = new THREE.WebGLRenderer({ antialias: true });
+        sideRenderer.setSize(document.getElementById('side-view').clientWidth, document.getElementById('side-view').clientHeight);
+        document.getElementById('side-view').appendChild(sideRenderer.domElement);
+        
+        // 俯视图渲染器
+        const topRenderer = new THREE.WebGLRenderer({ antialias: true });
+        topRenderer.setSize(document.getElementById('top-view').clientWidth, document.getElementById('top-view').clientHeight);
+        document.getElementById('top-view').appendChild(topRenderer.domElement);
+        
+        // 控制器
+        const controls = new THREE.OrbitControls(mainCamera, mainRenderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.25;
+        
+        // 添加坐标轴辅助
+        const axesHelper = new THREE.AxesHelper(5);
+        mainScene.add(axesHelper);
+        
+        // 添加网格地面
+        const gridHelper = new THREE.GridHelper(10, 10);
+        mainScene.add(gridHelper);
+        
+        // 存储所有小正方体的数组
+        const cubes = [];
+        
+        // 正方体材质
+        const cubeMaterial = new THREE.MeshLambertMaterial({ 
+            color: 0x3498db,
+            transparent: true,
+            opacity: 0.9
+        });
+        
+        // 选中时的材质
+        const selectedMaterial = new THREE.MeshLambertMaterial({ 
+            color: 0xe74c3c,
+            transparent: true,
+            opacity: 0.9
+        });
+        
+        // 添加光源
+        const light1 = new THREE.DirectionalLight(0xffffff, 0.8);
+        light1.position.set(1, 1, 1);
+        mainScene.add(light1);
+        
+        const light2 = new THREE.AmbientLight(0x404040);
+        mainScene.add(light2);
+        
+        // 视图场景的光源
+        const viewLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        viewLight.position.set(0, 0, 1);
+        frontScene.add(viewLight.clone());
+        sideScene.add(viewLight.clone());
+        topScene.add(viewLight.clone());
+        
+        // 视图场景的环境光
+        const viewAmbient = new THREE.AmbientLight(0x404040);
+        frontScene.add(viewAmbient.clone());
+        sideScene.add(viewAmbient.clone());
+        topScene.add(viewAmbient.clone());
+        
+        // 当前模式：添加或删除
+        let currentMode = 'add';
+        
+        // 添加正方体
+        function addCube(position) {
+            // 检查该位置是否已有正方体
+            const existingCube = cubes.find(cube => 
+                cube.position.x === position.x && 
+                cube.position.y === position.y && 
+                cube.position.z === position.z
+            );
+            
+            if (existingCube) return;
+            
+            const geometry = new THREE.BoxGeometry(1, 1, 1);
+            const cube = new THREE.Mesh(geometry, cubeMaterial);
+            cube.position.copy(position);
+            
+            mainScene.add(cube);
+            frontScene.add(cube.clone());
+            sideScene.add(cube.clone());
+            topScene.add(cube.clone());
+            
+            cubes.push(cube);
+        }
+        
+        // 删除正方体
+        function removeCube(position) {
+            for (let i = cubes.length - 1; i >= 0; i--) {
+                const cube = cubes[i];
+                if (Math.abs(cube.position.x - position.x) < 0.5 && 
+                    Math.abs(cube.position.y - position.y) < 0.5 && 
+                    Math.abs(cube.position.z - position.z) < 0.5) {
+                    
+                    // 从所有场景中移除
+                    mainScene.remove(cube);
+                    frontScene.children.forEach((child, index) => {
+                        if (child instanceof THREE.Mesh && child !== viewLight && child !== viewAmbient) {
+                            if (Math.abs(child.position.x - position.x) < 0.5 && 
+                                Math.abs(child.position.y - position.y) < 0.5 && 
+                                Math.abs(child.position.z - position.z) < 0.5) {
+                                frontScene.remove(child);
+                            }
+                        }
+                    });
+                    
+                    sideScene.children.forEach((child, index) => {
+                        if (child instanceof THREE.Mesh && child !== viewLight && child !== viewAmbient) {
+                            if (Math.abs(child.position.x - position.x) < 0.5 && 
+                                Math.abs(child.position.y - position.y) < 0.5 && 
+                                Math.abs(child.position.z - position.z) < 0.5) {
+                                sideScene.remove(child);
+                            }
+                        }
+                    });
+                    
+                    topScene.children.forEach((child, index) => {
+                        if (child instanceof THREE.Mesh && child !== viewLight && child !== viewAmbient) {
+                            if (Math.abs(child.position.x - position.x) < 0.5 && 
+                                Math.abs(child.position.y - position.y) < 0.5 && 
+                                Math.abs(child.position.z - position.z) < 0.5) {
+                                topScene.remove(child);
+                            }
+                        }
+                    });
+                    
+                    cubes.splice(i, 1);
+                    return;
+                }
+            }
+        }
+        
+        // 重置场景
+        function resetScene() {
+            // 移除所有正方体
+            while (cubes.length) {
+                const cube = cubes.pop();
+                mainScene.remove(cube);
+                
+                frontScene.children.forEach((child, index) => {
+                    if (child instanceof THREE.Mesh && child !== viewLight && child !== viewAmbient) {
+                        frontScene.remove(child);
+                    }
+                });
+                
+                sideScene.children.forEach((child, index) => {
+                    if (child instanceof THREE.Mesh && child !== viewLight && child !== viewAmbient) {
+                        sideScene.remove(child);
+                    }
+                });
+                
+                topScene.children.forEach((child, index) => {
+                    if (child instanceof THREE.Mesh && child !== viewLight && child !== viewAmbient) {
+                        topScene.remove(child);
+                    }
+                });
+            }
+        }
+        
+        // 点击事件处理
+        function onMouseClick(event) {
+            // 计算鼠标在归一化设备坐标中的位置
+            const mouse = new THREE.Vector2();
+            mouse.x = (event.clientX / mainRenderer.domElement.clientWidth) * 2 - 1;
+            mouse.y = -(event.clientY / mainRenderer.domElement.clientHeight) * 2 + 1;
+            
+            // 创建射线投射器
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, mainCamera);
+            
+            // 检测与地面的交点
+            const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+            const intersection = new THREE.Vector3();
+            raycaster.ray.intersectPlane(groundPlane, intersection);
+            
+            // 将交点坐标四舍五入到最近的整数
+            intersection.x = Math.round(intersection.x);
+            intersection.y = Math.round(intersection.y);
+            intersection.z = Math.round(intersection.z);
+            
+            // 确保y坐标至少为0.5（放在地面上）
+            intersection.y = Math.max(0.5, intersection.y);
+            
+            if (currentMode === 'add') {
+                addCube(intersection);
+            } else if (currentMode === 'remove') {
+                removeCube(intersection);
+            }
+        }
+        
+        // 按钮事件监听
+        document.getElementById('add-cube').addEventListener('click', () => {
+            currentMode = 'add';
+        });
+        
+        document.getElementById('remove-cube').addEventListener('click', () => {
+            currentMode = 'remove';
+        });
+        
+        document.getElementById('reset').addEventListener('click', resetScene);
+        
+        // 鼠标点击事件
+        mainRenderer.domElement.addEventListener('click', onMouseClick);
+        
+        // 窗口大小调整
+        window.addEventListener('resize', () => {
+            const mainView = document.getElementById('main-view');
+            const frontView = document.getElementById('front-view');
+            const sideView = document.getElementById('side-view');
+            const topView = document.getElementById('top-view');
+            
+            // 更新主相机和渲染器
+            mainCamera.aspect = mainView.clientWidth / mainView.clientHeight;
+            mainCamera.updateProjectionMatrix();
+            mainRenderer.setSize(mainView.clientWidth, mainView.clientHeight);
+            
+            // 更新正视图相机和渲染器
+            frontCamera.left = -frontView.clientWidth / frontView.clientHeight * 5;
+            frontCamera.right = frontView.clientWidth / frontView.clientHeight * 5;
+            frontCamera.updateProjectionMatrix();
+            frontRenderer.setSize(frontView.clientWidth, frontView.clientHeight);
+            
+            // 更新侧视图相机和渲染器
+            sideCamera.left = -sideView.clientWidth / sideView.clientHeight * 5;
+            sideCamera.right = sideView.clientWidth / sideView.clientHeight * 5;
+            sideCamera.updateProjectionMatrix();
+            sideRenderer.setSize(sideView.clientWidth, sideView.clientHeight);
+            
+            // 更新俯视图相机和渲染器
+            topCamera.left = -topView.clientWidth / topView.clientHeight * 5;
+            topCamera.right = topView.clientWidth / topView.clientHeight * 5;
+            topCamera.updateProjectionMatrix();
+            topRenderer.setSize(topView.clientWidth, topView.clientHeight);
+        });
+        
+        // 动画循环
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            controls.update();
+            
+            mainRenderer.render(mainScene, mainCamera);
+            frontRenderer.render(frontScene, frontCamera);
+            sideRenderer.render(sideScene, sideCamera);
+            topRenderer.render(topScene, topCamera);
+        }
+        
+        animate();
+    </script>
+</body>
+</html>

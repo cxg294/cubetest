@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>堆积正方体三视图演示</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #container {
+            display: flex;
+            height: 100vh;
+        }
+        #control-panel {
+            width: 300px;
+            height: 100%;
+            background-color: #f0f0f0;
+            padding: 10px;
+            box-sizing: border-box;
+            overflow: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        #top-view-control {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            grid-template-rows: repeat(5, 1fr);
+            gap: 2px;
+            margin-top: 10px;
+        }
+        .control-cell {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .control-cell:hover {
+            background-color: #e0e0e0;
+        }
+        #main-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        #main-view {
+            flex: 1;
+            position: relative;
+        }
+        #ortho-views {
+            height: 200px;
+            display: flex;
+            background-color: #e0e0e0;
+        }
+        .ortho-view {
+            flex: 1;
+            position: relative;
+            border: 1px solid #ccc;
+        }
+        .view-label {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            background-color: rgba(255,255,255,0.7);
+            padding: 2px 5px;
+            font-size: 12px;
+        }
+        .instructions {
+            padding: 10px;
+            background-color: #ddd;
+            font-size: 14px;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="control-panel">
+            <h2>俯视图控制</h2>
+            <p>点击格子增加小正方体，右键点击减少</p>
+            <div id="top-view-control"></div>
+        </div>
+        <div id="main-container">
+            <div id="main-view"></div>
+            <div id="ortho-views">
+                <div class="ortho-view" id="top-view">
+                    <div class="view-label">俯视图</div>
+                </div>
+                <div class="ortho-view" id="front-view">
+                    <div class="view-label">正视图</div>
+                </div>
+                <div class="ortho-view" id="side-view">
+                    <div class="view-label">侧视图</div>
+                </div>
+            </div>
+            <div class="instructions">
+                <p>操作说明：点击左侧俯视图格子增加小正方体，右键点击减少。主视图可以使用鼠标旋转、缩放和平移。</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+    <script>
+        // 初始化场景、相机和渲染器
+        const gridSize = 5; // 5x5网格
+        const maxHeight = 5; // 最大高度
+        let cubesData = Array(gridSize).fill().map(() => Array(gridSize).fill(0)); // 存储每个位置的立方体高度
+        
+        // 主场景
+        const mainScene = new THREE.Scene();
+        mainScene.background = new THREE.Color(0xf0f0f0);
+        const mainCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        mainCamera.position.set(10, 10, 10);
+        mainCamera.lookAt(0, 0, 0);
+        
+        // 正交视图场景
+        const topScene = new THREE.Scene();
+        topScene.background = new THREE.Color(0xffffff);
+        const topCamera = new THREE.OrthographicCamera(-gridSize/2, gridSize/2, gridSize/2, -gridSize/2, 0.1, 100);
+        topCamera.position.set(0, 10, 0);
+        topCamera.lookAt(0, 0, 0);
+        topCamera.up.set(0, 0, -1);
+        
+        const frontScene = new THREE.Scene();
+        frontScene.background = new THREE.Color(0xffffff);
+        const frontCamera = new THREE.OrthographicCamera(-gridSize/2, gridSize/2, maxHeight, 0, 0.1, 100);
+        frontCamera.position.set(0, 0, 10);
+        frontCamera.lookAt(0, 0, 0);
+        
+        const sideScene = new THREE.Scene();
+        sideScene.background = new THREE.Color(0xffffff);
+        const sideCamera = new THREE.OrthographicCamera(-gridSize/2, gridSize/2, maxHeight, 0, 0.1, 100);
+        sideCamera.position.set(10, 0, 0);
+        sideCamera.lookAt(0, 0, 0);
+        sideCamera.up.set(0, 1, 0);
+        
+        // 渲染器
+        const mainRenderer = new THREE.WebGLRenderer({ antialias: true });
+        mainRenderer.setSize(document.getElementById('main-view').clientWidth, document.getElementById('main-view').clientHeight);
+        document.getElementById('main-view').appendChild(mainRenderer.domElement);
+        
+        const topRenderer = new THREE.WebGLRenderer({ antialias: true });
+        topRenderer.setSize(document.getElementById('top-view').clientWidth, document.getElementById('top-view').clientHeight);
+        document.getElementById('top-view').appendChild(topRenderer.domElement);
+        
+        const frontRenderer = new THREE.WebGLRenderer({ antialias: true });
+        frontRenderer.setSize(document.getElementById('front-view').clientWidth, document.getElementById('front-view').clientHeight);
+        document.getElementById('front-view').appendChild(frontRenderer.domElement);
+        
+        const sideRenderer = new THREE.WebGLRenderer({ antialias: true });
+        sideRenderer.setSize(document.getElementById('side-view').clientWidth, document.getElementById('side-view').clientHeight);
+        document.getElementById('side-view').appendChild(sideRenderer.domElement);
+        
+        // 控制器
+        const controls = new THREE.OrbitControls(mainCamera, mainRenderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        
+        // 光源
+        const addLights = (scene) => {
+            const ambientLight = new THREE.AmbientLight(0x404040);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight.position.set(1, 1, 1);
+            scene.add(directionalLight);
+        };
+        
+        addLights(mainScene);
+        addLights(topScene);
+        addLights(frontScene);
+        addLights(sideScene);
+        
+        // 辅助工具
+        const gridHelper = new THREE.GridHelper(gridSize, gridSize);
+        mainScene.add(gridHelper);
+        topScene.add(gridHelper.clone());
+        
+        // 立方体材质
+        const cubeMaterial = new THREE.MeshLambertMaterial({ 
+            color: 0x00a1ff,
+            transparent: true,
+            opacity: 0.8
+        });
+        
+        // 存储所有立方体的引用
+        let cubes = [];
+        let topCubes = [];
+        let frontCubes = [];
+        let sideCubes = [];
+        
+        // 初始化控制面板
+        const topViewControl = document.getElementById('top-view-control');
+        for (let z = 0; z < gridSize; z++) {
+            for (let x = 0; x < gridSize; x++) {
+                const cell = document.createElement('div');
+                cell.className = 'control-cell';
+                cell.dataset.x = x;
+                cell.dataset.z = z;
+                cell.textContent = '0';
+                
+                cell.addEventListener('click', () => {
+                    const x = parseInt(cell.dataset.x);
+                    const z = parseInt(cell.dataset.z);
+                    if (cubesData[x][z] < maxHeight) {
+                        cubesData[x][z]++;
+                        updateCubes();
+                    }
+                });
+                
+                cell.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    const x = parseInt(cell.dataset.x);
+                    const z = parseInt(cell.dataset.z);
+                    if (cubesData[x][z] > 0) {
+                        cubesData[x][z]--;
+                        updateCubes();
+                    }
+                });
+                
+                topViewControl.appendChild(cell);
+            }
+        }
+        
+        // 更新立方体
+        function updateCubes() {
+            // 清除现有立方体
+            cubes.forEach(cube => mainScene.remove(cube));
+            topCubes.forEach(cube => topScene.remove(cube));
+            frontCubes.forEach(cube => frontScene.remove(cube));
+            sideCubes.forEach(cube => sideScene.remove(cube));
+            
+            cubes = [];
+            topCubes = [];
+            frontCubes = [];
+            sideCubes = [];
+            
+            // 更新控制面板显示
+            for (let z = 0; z < gridSize; z++) {
+                for (let x = 0; x < gridSize; x++) {
+                    const index = z * gridSize + x;
+                    topViewControl.children[index].textContent = cubesData[x][z];
+                }
+            }
+            
+            // 创建新的立方体
+            for (let z = 0; z < gridSize; z++) {
+                for (let x = 0; x < gridSize; x++) {
+                    const height = cubesData[x][z];
+                    if (height > 0) {
+                        // 主场景中的立方体
+                        for (let y = 0; y < height; y++) {
+                            const cube = new THREE.Mesh(
+                                new THREE.BoxGeometry(1, 1, 1),
+                                cubeMaterial
+                            );
+                            cube.position.set(
+                                x - Math.floor(gridSize / 2) + 0.5,
+                                y + 0.5,
+                                z - Math.floor(gridSize / 2) + 0.5
+                            );
+                            mainScene.add(cube);
+                            cubes.push(cube);
+                        }
+                        
+                        // 俯视图中的平面表示
+                        const topCube = new THREE.Mesh(
+                            new THREE.BoxGeometry(1, 0.1, 1),
+                            new THREE.MeshLambertMaterial({ color: 0x00a1ff })
+                        );
+                        topCube.position.set(
+                            x - Math.floor(gridSize / 2) + 0.5,
+                            0.05,
+                            z - Math.floor(gridSize / 2) + 0.5
+                        );
+                        topScene.add(topCube);
+                        topCubes.push(topCube);
+                        
+                        // 正视图中的高度条
+                        const frontCube = new THREE.Mesh(
+                            new THREE.BoxGeometry(1, height, 0.1),
+                            new THREE.MeshLambertMaterial({ color: 0x00a1ff })
+                        );
+                        frontCube.position.set(
+                            x - Math.floor(gridSize / 2) + 0.5,
+                            height / 2,
+                            0
+                        );
+                        frontScene.add(frontCube);
+                        frontCubes.push(frontCube);
+                        
+                        // 侧视图中的高度条
+                        const sideCube = new THREE.Mesh(
+                            new THREE.BoxGeometry(0.1, height, 1),
+                            new THREE.MeshLambertMaterial({ color: 0x00a1ff })
+                        );
+                        sideCube.position.set(
+                            0,
+                            height / 2,
+                            z - Math.floor(gridSize / 2) + 0.5
+                        );
+                        sideScene.add(sideCube);
+                        sideCubes.push(sideCube);
+                    }
+                }
+            }
+        }
+        
+        // 窗口大小调整
+        window.addEventListener('resize', () => {
+            const mainWidth = document.getElementById('main-view').clientWidth;
+            const mainHeight = document.getElementById('main-view').clientHeight;
+            
+            mainCamera.aspect = mainWidth / mainHeight;
+            mainCamera.updateProjectionMatrix();
+            mainRenderer.setSize(mainWidth, mainHeight);
+            
+            topRenderer.setSize(document.getElementById('top-view').clientWidth, document.getElementById('top-view').clientHeight);
+            frontRenderer.setSize(document.getElementById('front-view').clientWidth, document.getElementById('front-view').clientHeight);
+            sideRenderer.setSize(document.getElementById('side-view').clientWidth, document.getElementById('side-view').clientHeight);
+        });
+        
+        // 动画循环
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            
+            mainRenderer.render(mainScene, mainCamera);
+            topRenderer.render(topScene, topCamera);
+            frontRenderer.render(frontScene, frontCamera);
+            sideRenderer.render(sideScene, sideCamera);
+        }
+        
+        animate();
+    </script>
+</body>
+</html>
