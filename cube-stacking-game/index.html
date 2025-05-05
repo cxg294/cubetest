@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>三视图重建挑战 - 立方体堆积游戏</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- Three.js 库 -->
+    <script src="libs/three.min.js"></script>
+    <script src="libs/OrbitControls.js"></script>
+    <!-- 使用CDN图标库替代本地文件 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+</head>
+<body>
+    <!-- 游戏控制区 -->
+    <div class="game-controls">
+        <h1>三视图重建挑战</h1>
+        <div class="control-buttons">
+            <div class="level-selector">
+                <label>难度级别：</label>
+                <select id="difficulty-level">
+                    <option value="easy" selected>简单 (3×3范围，连续结构)</option>
+                    <option value="medium">中等 (5×5范围，连续结构)</option>
+                    <option value="hard">困难 (5×5范围，任意结构)</option>
+                </select>
+            </div>
+            <div class="game-status">
+                <span id="status-message">准备开始游戏...</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 上部内容区 -->
+        <div class="content-top">
+            <!-- 左侧俯视网格操作区 -->
+            <div class="sidebar left-sidebar">
+                <div class="panel">
+                    <div class="grid-view-container">
+                        <div class="view-header">
+                            <h3>俯视网格（答题区）</h3>
+                            <div class="grid-controls">
+                                <button id="clear-grid">清空重做</button>
+                            </div>
+                        </div>
+                        <div id="grid-view">
+                            <div class="grid-table-container">
+                                <!-- 网格表格将通过JS动态创建 -->
+                            </div>
+                        </div>
+                    </div>
+                    <div class="help-text">
+                        <p>左键点击添加方块，右键点击移除方块</p>
+                        <p>根据三视图，重建对应的立体结构</p>
+                    </div>
+                </div>
+                
+                <div class="panel">
+                    <h2>样式设置</h2>
+                    <div class="style-controls">
+                        <div class="control-section">
+                            <div class="control-group">
+                                <label>预设样式：</label>
+                                <select id="style-preset">
+                                    <option value="standardBlue">标准蓝色</option>
+                                    <option value="transparentBlue">透明蓝色</option>
+                                    <option value="gray">灰色</option>
+                                    <option value="wireframe">线框</option>
+                                    <option value="tricolor">标准三色</option>
+                                    <option value="sixColor">标准六色</option>
+                                </select>
+                            </div>
+                            <div class="control-group">
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="lighting-toggle" checked>
+                                    <label for="lighting-toggle">光照效果</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 中间渲染区（学生答案） -->
+            <div class="main-content">
+                <div class="render-container">
+                    <div class="render-controls top-controls">
+                        <div class="control-buttons">
+                            <button id="reset-view" title="还原至中心"><i class="bi bi-house"></i> 还原视角</button>
+                            <button id="focus-object" title="以当前物体为中心"><i class="bi bi-bullseye"></i> 聚焦模型</button>
+                            <button id="toggle-grid" title="显示/隐藏平面网格"><i class="bi bi-grid-3x3"></i> 平面网格</button>
+                        </div>
+                        <div class="projection-toggle">
+                            <label>
+                                <input type="radio" name="projection" value="perspective" checked> 透视投影
+                            </label>
+                            <label>
+                                <input type="radio" name="projection" value="orthographic"> 正交投影
+                            </label>
+                        </div>
+                    </div>
+                    <div class="camera-controls">
+                        <button id="default-view" title="默认视角"><i class="bi bi-badge-3d"></i> 默认视角</button>
+                        <button id="front-view" title="前视角"><i class="bi bi-arrow-up-square"></i> 前视角</button>
+                        <button id="top-view" title="俯视角"><i class="bi bi-arrow-down-square"></i> 俯视角</button>
+                        <button id="left-view" title="左视角"><i class="bi bi-arrow-left-square"></i> 左视角</button>
+                    </div>
+                    <div id="canvas-container"></div>
+                </div>
+            </div>
+            
+            <!-- 右侧按钮区 -->
+            <div class="sidebar right-sidebar">
+                <div class="panel">
+                    <div class="game-actions">
+                        <button id="start-game-button" class="primary-btn"><i class="bi bi-play-fill"></i> 开始游戏</button>
+                        <button id="next-challenge-button" class="primary-btn" disabled><i class="bi bi-arrow-right"></i> 下一题</button>
+                        <button id="verify-answer" class="success-btn" disabled><i class="bi bi-check2"></i> 验证答案</button>
+                        <button id="get-hint" class="info-btn" disabled><i class="bi bi-lightbulb"></i> 获取提示</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 底部三视图区域 -->
+        <div class="views-area">
+            <div class="views-container">
+                <div id="target-front-view-container" class="view-box">
+                    <div class="view-header">
+                        <h3>主视图（题目）</h3>
+                    </div>
+                    <div class="view-content">
+                        <div class="view-canvas" id="target-front-view-canvas"></div>
+                    </div>
+                </div>
+                
+                <div id="target-top-view-container" class="view-box">
+                    <div class="view-header">
+                        <h3>俯视图（题目）</h3>
+                    </div>
+                    <div class="view-content">
+                        <div class="view-canvas" id="target-top-view-canvas"></div>
+                    </div>
+                </div>
+                
+                <div id="target-left-view-container" class="view-box">
+                    <div class="view-header">
+                        <h3>左视图（题目）</h3>
+                    </div>
+                    <div class="view-content">
+                        <div class="view-canvas" id="target-left-view-canvas"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 游戏开始浮窗 -->
+    <div id="game-start-modal" class="game-start-modal">
+        <div class="modal-content">
+            <h2>三视图重建挑战</h2>
+            <p>从三视图重建立体结构，训练空间想象能力！</p>
+            <p>请选择难度级别后开始游戏：</p>
+            <div class="level-selector" style="margin: 15px 0; justify-content: center;">
+                <label>难度级别：</label>
+                <select id="modal-difficulty-level">
+                    <option value="easy" selected>简单 (3×3范围，连续结构)</option>
+                    <option value="medium">中等 (5×5范围，连续结构)</option>
+                    <option value="hard">困难 (5×5范围，任意结构)</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button id="start-game" class="primary-btn"><i class="bi bi-play-fill"></i> 开始游戏</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 结果浮窗 -->
+    <div id="result-container" class="result-panel hidden">
+        <div class="result-message success">
+            <h3>答案正确！</h3>
+            <p>恭喜你成功重建了立体结构！</p>
+            <div class="result-actions">
+                <button id="next-challenge" class="primary-btn">下一题</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 脚本 -->
+    <script src="js/app.js"></script>
+</body>
+</html> 

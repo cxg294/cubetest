@@ -1,0 +1,737 @@
+/* 全局样式 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif;
+    background-color: #f5f6fa;
+    color: #333;
+    line-height: 1.6;
+    overflow-x: hidden;
+    position: relative;
+}
+
+header {
+    background-color: #3498db;
+    color: white;
+    text-align: center;
+    padding: 15px 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+header h1 {
+    font-size: 24px;
+    margin-bottom: 5px;
+}
+
+header p {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+footer {
+    background-color: #34495e;
+    color: white;
+    text-align: center;
+    padding: 10px 0;
+    font-size: 12px;
+    margin-top: 20px;
+}
+
+/* 主容器样式 */
+.container {
+    display: flex;
+    flex-direction: column; /* 将主容器改为纵向布局 */
+    height: calc(100vh - 56px); /* 减去顶部控制栏高度 */
+    gap: 10px;
+    padding: 10px;
+}
+
+/* 上部内容区 */
+.content-top {
+    display: flex;
+    flex: 1;
+    gap: 10px;
+    min-height: 0; /* 允许内容区收缩 */
+}
+
+/* 侧边栏通用样式 */
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+}
+
+/* 左侧边栏 */
+.left-sidebar {
+    flex: 0 0 300px;
+}
+
+/* 右侧边栏 */
+.right-sidebar {
+    flex: 0 0 250px;
+}
+
+/* 面板样式 */
+.panel {
+    background-color: white;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.panel h2 {
+    font-size: 18px;
+    color: #2c3e50;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+/* 中间内容区 */
+.main-content {
+    flex: 1;
+    min-width: 0; /* 确保弹性子项可以收缩 */
+    display: flex;
+    flex-direction: column;
+}
+
+.render-container {
+    background-color: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+#canvas-container {
+    flex: 1;
+    background-color: #f0f2f5;
+}
+
+/* 渲染控制区域改为顶部 */
+.render-controls {
+    display: flex;
+    padding: 12px 15px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #eee;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.top-controls {
+    flex-wrap: wrap;
+}
+
+.control-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.render-controls button {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.render-controls button:hover {
+    background-color: #2980b9;
+}
+
+.render-controls button i {
+    font-size: 16px;
+}
+
+.projection-toggle {
+    display: flex;
+    gap: 15px;
+}
+
+.projection-toggle label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+/* 网格视图容器 - 确保网格为正方形 */
+.grid-view-container {
+    margin-bottom: 10px;
+}
+
+/* 俯视网格 - 正方形设置 */
+#grid-view {
+    width: 100%;
+    position: relative;
+    padding-bottom: 100%; /* 关键：使容器为正方形 */
+    background-color: #f0f2f5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+/* 网格表格容器定位 */
+#grid-view .grid-table-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* 网格表格样式 */
+.grid-table {
+    width: 100%;
+    height: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.grid-table td {
+    border: 1px solid #ddd;
+    text-align: center;
+    position: relative;
+    padding: 0;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+/* 保持单元格为正方形 */
+.grid-table td:after {
+    content: '';
+    display: block;
+    padding-bottom: 100%; /* 确保单元格为正方形 */
+}
+
+.grid-table td span {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+.grid-table td[data-value="0"] {
+    color: transparent;
+}
+
+.grid-table td[data-value]:not([data-value="0"]) {
+    background-color: #e3f2fd;
+    color: #1a73e8;
+}
+
+.grid-table td:hover {
+    background-color: #f1f8ff;
+}
+
+.help-text {
+    font-size: 12px;
+    color: #7f8c8d;
+    margin-top: 10px;
+}
+
+/* 样式控制部分 */
+.style-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.control-group label {
+    font-size: 14px;
+    min-width: 70px;
+}
+
+.control-group input[type="color"] {
+    width: 40px;
+    height: 25px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.control-group input[type="range"] {
+    flex: 1;
+}
+
+.control-section {
+    margin-bottom: 20px;
+}
+
+.control-section h3 {
+    font-size: 16px;
+    color: #333;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
+}
+
+#style-preset {
+    width: 100%;
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.checkbox-group input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+/* 底部三视图区域 */
+.views-area {
+    height: 250px; /* 保持增加后的高度 */
+    max-width: 1400px; /* 增加最大宽度，使整个区域更宽 */
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    margin: 10px auto; /* 上下间距10px，左右自动居中 */
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+}
+
+.views-title {
+    margin-bottom: 10px; /* 增加与视图的间距 */
+    font-size: 18px; /* 增大标题字体 */
+    color: #2c3e50;
+    text-align: center; /* 标题居中 */
+}
+
+/* 右侧视图区样式 */
+.views-container {
+    display: flex;
+    flex-direction: row; /* 改为水平排列 */
+    gap: 15px; /* 稍微减少视图之间的间距 */
+    flex: 1;
+    min-height: 0; /* 允许容器收缩 */
+    justify-content: center; /* 水平居中 */
+}
+
+/* 视图容器 */
+.view-box {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15); /* 增强阴影效果 */
+    overflow: hidden;
+    margin-bottom: 0;
+    flex: 1; /* 均匀分配空间 */
+    max-width: 600px; /* 增加最大宽度，使视图更宽 */
+    display: flex;
+    flex-direction: column;
+}
+
+/* 视图标题 */
+.view-header {
+    background-color: #f0f7ff; /* 使用淡蓝色背景 */
+    padding: 8px 12px; /* 增加内边距 */
+    border-bottom: 1px solid #cce5ff; /* 使用蓝色边框 */
+    display: flex;
+    align-items: center;
+    justify-content: center; /* 标题居中 */
+}
+
+.view-title, .view-header h3 {
+    margin: 0;
+    font-size: 16px; /* 增大字体 */
+    font-weight: 500;
+    color: #1a73e8; /* 使用蓝色字体 */
+}
+
+/* 视图内容区域 */
+.view-content {
+    padding: 5px; /* 增加内边距 */
+    overflow: hidden;
+    flex: 1; /* 让视图内容区域占满剩余空间 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #f8f9fa; /* 设置背景色 */
+}
+
+/* 视图画布 - 确保方形比例 */
+.view-canvas {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* 确保视图内的渲染器保持正方形 */
+.view-canvas canvas {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 90%; /* 稍微缩小以避免溢出 */
+    max-height: 90%;
+    aspect-ratio: 1 / 1; /* 保持1:1的宽高比 */
+    border: 1px solid #cce5ff; /* 添加淡蓝色边框 */
+}
+
+/* 游戏按钮区 - 移到右侧边栏 */
+.game-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.game-actions button {
+    width: 100%;
+    padding: 10px;
+    text-align: left;
+}
+
+/* 挑战信息样式 */
+.challenge-info {
+    background-color: #f0f7ff;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    border-left: 4px solid #1a73e8;
+}
+
+.challenge-info h3 {
+    color: #1a73e8;
+    font-size: 14px;
+    margin-bottom: 4px;
+}
+
+.challenge-info p {
+    font-size: 12px;
+    margin: 0;
+}
+
+/* 游戏控制区 */
+.game-controls {
+    background-color: #fff;
+    padding: 8px 15px;
+    border-bottom: 1px solid #e8e8e8;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 56px; /* 固定高度 */
+}
+
+.game-controls h1 {
+    font-size: 18px;
+    margin: 0;
+    color: #2c3e50;
+}
+
+.game-status {
+    background-color: #f8f9fa;
+    padding: 5px 10px;
+    border-radius: 4px;
+    border: 1px solid #e0e0e0;
+    font-size: 14px;
+}
+
+/* 按钮样式 */
+.primary-btn, .success-btn, .info-btn {
+    padding: 8px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.2s;
+}
+
+.primary-btn {
+    background-color: #1a73e8;
+    color: white;
+}
+
+.success-btn {
+    background-color: #0f9d58;
+    color: white;
+}
+
+.info-btn {
+    background-color: #f1c40f;
+    color: #333;
+}
+
+.primary-btn:hover {
+    background-color: #1557b0;
+}
+
+.success-btn:hover {
+    background-color: #0c7d46;
+}
+
+.info-btn:hover {
+    background-color: #e2b607;
+}
+
+button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* 难度选择器 */
+.level-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.level-selector select {
+    padding: 5px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    font-size: 14px;
+}
+
+/* 浮窗模式开始游戏 */
+.game-start-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background-color: white;
+    border-radius: 8px;
+    padding: 25px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    animation: fadeIn 0.3s;
+}
+
+.modal-content h2 {
+    font-size: 22px;
+    margin-bottom: 15px;
+    color: #2c3e50;
+}
+
+.modal-content p {
+    margin-bottom: 20px;
+    color: #555;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+/* 结果面板改为弹窗 */
+.result-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.result-message {
+    background-color: white;
+    border-radius: 8px;
+    padding: 25px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    animation: fadeIn 0.3s;
+}
+
+.result-message.success {
+    border-top: 5px solid #0f9d58;
+}
+
+.result-message.error {
+    border-top: 5px solid #e53935;
+}
+
+.result-message h3 {
+    font-size: 22px;
+    margin-bottom: 15px;
+    color: #0f9d58;
+}
+
+.result-message.error h3 {
+    color: #e53935;
+}
+
+.result-message p {
+    margin-bottom: 20px;
+    color: #555;
+}
+
+.result-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* 动画 */
+@keyframes fadeIn {
+    from { 
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 网格控制按钮 */
+.grid-controls {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.grid-controls button {
+    padding: 4px 10px;
+    background-color: #f0f2f5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background-color 0.3s;
+}
+
+.grid-controls button:hover {
+    background-color: #e6e6e6;
+}
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+    .container {
+        padding: 5px;
+        gap: 5px;
+    }
+    
+    .left-sidebar, .right-sidebar {
+        flex: 0 0 250px;
+    }
+}
+
+@media (max-width: 992px) {
+    .content-top {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        width: 100%;
+    }
+    
+    .main-content {
+        height: 400px;
+        margin: 10px 0;
+    }
+    
+    .views-area {
+        height: 300px;
+    }
+    
+    .views-container {
+        flex-direction: column; /* 小屏幕时改回垂直排列 */
+    }
+}
+
+/* 隐藏样式设置面板 */
+.panel .style-controls {
+    display: none; /* 隐藏样式设置控件 */
+}
+
+/* 标题"样式设置"也隐藏 */
+.panel h2:has(+ .style-controls) {
+    display: none;
+}
+
+/* 修改主渲染区域的控制按钮，增加新按钮样式 */
+.render-controls .control-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.render-controls button {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* 添加视角控制按钮样式 */
+.camera-controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.camera-controls button {
+    flex: 1;
+    white-space: nowrap;
+    font-size: 12px;
+    padding: 5px 8px;
+} 
