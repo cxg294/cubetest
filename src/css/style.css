@@ -1,0 +1,189 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+    background-color: #000;
+    color: #fff;
+}
+
+#container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+#info {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 300px;
+    padding: 10px;
+    background-color: rgba(0, 0, 0, 0.7);
+    border-radius: 5px;
+    z-index: 10;
+}
+
+h1 {
+    margin-top: 0;
+    font-size: 24px;
+}
+
+#controls {
+    margin-top: 20px;
+}
+
+button {
+    padding: 8px 15px;
+    margin-right: 10px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+.slider-container {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+}
+
+.slider-container label {
+    margin-right: 10px;
+}
+
+input[type="range"] {
+    flex: 1;
+}
+
+#speed-value {
+    margin-left: 10px;
+    min-width: 30px;
+}
+
+/* 行星信息面板样式 */
+#planet-info {
+    position: absolute;
+    bottom: 80px;
+    right: 20px;
+    width: 350px;
+    padding: 15px;
+    background-color: rgba(0, 0, 0, 0.8);
+    border-radius: 8px;
+    z-index: 100;
+    border: 1px solid #444;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.hidden {
+    display: none;
+}
+
+#planet-name {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 22px;
+    text-align: center;
+    color: #ffcc00;
+}
+
+#close-info {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: transparent;
+    color: #aaa;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    width: 25px;
+    height: 25px;
+    line-height: 25px;
+    text-align: center;
+}
+
+#close-info:hover {
+    color: #fff;
+}
+
+.info-row {
+    display: flex;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #333;
+}
+
+.info-label {
+    flex: 1;
+    font-weight: bold;
+    color: #8cc7ff;
+}
+
+.info-value {
+    flex: 2;
+}
+
+.description {
+    display: block;
+    margin-top: 5px;
+    line-height: 1.4;
+}
+
+/* 行星选择菜单 */
+#planet-selection {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.7);
+    border-radius: 5px;
+    padding: 5px 15px;
+    z-index: 10;
+}
+
+#planet-selection ul {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+#planet-selection li {
+    margin: 0 10px;
+    padding: 5px 10px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+}
+
+#planet-selection li:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+#planet-selection li.active {
+    background-color: #4CAF50;
+    color: white;
+}
+
+/* 添加行星标签样式 */
+.planet-label {
+    color: white;
+    font-size: 14px;
+    background-color: rgba(0, 0, 0, 0.6);
+    padding: 2px 6px;
+    border-radius: 3px;
+    pointer-events: none;
+    white-space: nowrap;
+    transition: opacity 0.3s;
+    transform: translate(-50%, -50%);
+    text-shadow: 0 0 3px rgba(0, 0, 0, 0.8);
+} 

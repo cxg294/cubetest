@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>太阳系模拟</title>
+    <link rel="stylesheet" href="src/css/style.css">
+</head>
+<body>
+    <div id="info">
+        <h1>太阳系模拟</h1>
+        <div id="controls">
+            <button id="pause-btn">暂停/继续</button>
+            <div class="slider-container">
+                <label for="speed-slider">模拟速度:</label>
+                <input type="range" id="speed-slider" min="0.1" max="10" step="0.1" value="1">
+                <span id="speed-value">1x</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 添加行星信息面板 -->
+    <div id="planet-info" class="hidden">
+        <h2 id="planet-name">行星名称</h2>
+        <button id="close-info">×</button>
+        <div id="planet-details">
+            <div class="info-row">
+                <span class="info-label">直径:</span>
+                <span id="planet-diameter" class="info-value">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">距离太阳:</span>
+                <span id="planet-distance" class="info-value">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">公转周期:</span>
+                <span id="planet-orbit-period" class="info-value">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">自转周期:</span>
+                <span id="planet-rotation-period" class="info-value">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">卫星数:</span>
+                <span id="planet-moons-count" class="info-value">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">表面温度:</span>
+                <span id="planet-temperature" class="info-value">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">描述:</span>
+                <span id="planet-description" class="info-value description">-</span>
+            </div>
+        </div>
+    </div>
+    
+    <div id="container"></div>
+    
+    <div id="planet-selection">
+        <ul>
+            <li data-planet="sun">太阳</li>
+            <li data-planet="mercury">水星</li>
+            <li data-planet="venus">金星</li>
+            <li data-planet="earth">地球</li>
+            <li data-planet="mars">火星</li>
+            <li data-planet="jupiter">木星</li>
+            <li data-planet="saturn">土星</li>
+            <li data-planet="uranus">天王星</li>
+            <li data-planet="neptune">海王星</li>
+        </ul>
+    </div>
+    
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.157.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.157.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module" src="src/js/main.js"></script>
+</body>
+</html> 
