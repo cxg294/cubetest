@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>英语单词测验</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .word-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .word {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+        .pronounce-btn {
+            display: block;
+            margin: 0 auto 20px;
+            padding: 8px 16px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .pronounce-btn:hover {
+            background-color: #2980b9;
+        }
+        .options {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+        .option {
+            padding: 10px;
+            background-color: #ecf0f1;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .option:hover {
+            background-color: #d6eaf8;
+            border-color: #3498db;
+        }
+        .option.selected {
+            background-color: #3498db;
+            color: white;
+            border-color: #2980b9;
+        }
+        .option.correct {
+            background-color: #2ecc71;
+            color: white;
+            border-color: #27ae60;
+        }
+        .option.incorrect {
+            background-color: #e74c3c;
+            color: white;
+            border-color: #c0392b;
+        }
+        .feedback {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .correct-feedback {
+            background-color: #d5f5e3;
+            color: #27ae60;
+        }
+        .incorrect-feedback {
+            background-color: #fadbd8;
+            color: #e74c3c;
+        }
+        .next-btn {
+            display: block;
+            margin: 20px auto 0;
+            padding: 10px 20px;
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .next-btn:hover {
+            background-color: #27ae60;
+        }
+        .score {
+            text-align: center;
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+        .progress {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #7f8c8d;
+        }
+        .result {
+            text-align: center;
+            font-size: 24px;
+            margin: 20px 0;
+            color: #2c3e50;
+        }
+        .restart-btn {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background-color: #e67e22;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .restart-btn:hover {
+            background-color: #d35400;
+        }
+    </style>
+</head>
+<body>
+    <h1>英语单词测验</h1>
+    <div class="progress" id="progress">问题 1/9</div>
+    <div class="score" id="score">得分: 0</div>
+    <div class="word-container" id="quiz-container">
+        <div class="word" id="current-word"></div>
+        <button class="pronounce-btn" id="pronounce-btn">发音</button>
+        <div class="options" id="options-container"></div>
+        <div class="feedback" id="feedback"></div>
+        <button class="next-btn" id="next-btn">下一题</button>
+    </div>
+    <div class="result" id="result-container" style="display: none;"></div>
+    <button class="restart-btn" id="restart-btn" style="display: none;">重新开始</button>
+
+    <script>
+        // 单词数据
+        const words = [
+            {
+                word: "vegetable",
+                pronunciation: "ˈvedʒtəbl",
+                meaning: "蔬菜",
+                options: ["蔬菜", "水果", "肉类", "谷物"]
+            },
+            {
+                word: "ambulance",
+                pronunciation: "ˈæmbjələns",
+                meaning: "救护车",
+                options: ["警察", "救护车", "消防车", "出租车"]
+            },
+            {
+                word: "admire",
+                pronunciation: "ədˈmaɪər",
+                meaning: "钦佩",
+                options: ["批评", "忽视", "钦佩", "嫉妒"]
+            },
+            {
+                word: "chaos",
+                pronunciation: "ˈkeɪɒs",
+                meaning: "混乱",
+                options: ["秩序", "安静", "混乱", "和平"]
+            },
+            {
+                word: "stubborn",
+                pronunciation: "ˈstʌbən",
+                meaning: "固执的",
+                options: ["灵活的", "固执的", "友好的", "害羞的"]
+            },
+            {
+                word: "balloon",
+                pronunciation: "bəˈluːn",
+                meaning: "气球",
+                options: ["气球", "篮球", "泡泡", "球体"]
+            },
+            {
+                word: "Luggage",
+                pronunciation: "ˈlʌɡɪdʒ",
+                meaning: "行李",
+                options: ["衣服", "行李", "包裹", "箱子"]
+            },
+            {
+                word: "Kangaroo",
+                pronunciation: "ˌkæŋɡəˈruː",
+                meaning: "袋鼠",
+                options: ["考拉", "袋鼠", "企鹅", "熊猫"]
+            },
+            {
+                word: "Umbrella",
+                pronunciation: "ʌmˈbrelə",
+                meaning: "雨伞",
+                options: ["帽子", "雨伞", "雨衣", "太阳镜"]
+            }
+        ];
+
+        // 打乱选项顺序
+        words.forEach(word => {
+            word.options = shuffleArray(word.options);
+        });
+
+        // 初始化变量
+        let currentQuestion = 0;
+        let score = 0;
+        let selectedOption = null;
+        let quizCompleted = false;
+
+        // DOM元素
+        const currentWordEl = document.getElementById('current-word');
+        const pronounceBtn = document.getElementById('pronounce-btn');
+        const optionsContainer = document.getElementById('options-container');
+        const feedbackEl = document.getElementById('feedback');
+        const nextBtn = document.getElementById('next-btn');
+        const progressEl = document.getElementById('progress');
+        const scoreEl = document.getElementById('score');
+        const quizContainer = document.getElementById('quiz-container');
+        const resultContainer = document.getElementById('result-container');
+        const restartBtn = document.getElementById('restart-btn');
+
+        // 初始化测验
+        loadQuestion();
+
+        // 发音按钮事件
+        pronounceBtn.addEventListener('click', () => {
+            pronounceWord(words[currentQuestion].word);
+        });
+
+        // 下一题按钮事件
+        nextBtn.addEventListener('click', () => {
+            if (quizCompleted) {
+                return;
+            }
+
+            if (selectedOption !== null) {
+                currentQuestion++;
+                if (currentQuestion < words.length) {
+                    loadQuestion();
+                } else {
+                    showResult();
+                }
+            }
+        });
+
+        // 重新开始按钮事件
+        restartBtn.addEventListener('click', () => {
+            currentQuestion = 0;
+            score = 0;
+            quizCompleted = false;
+            scoreEl.textContent = `得分: ${score}`;
+            quizContainer.style.display = 'block';
+            resultContainer.style.display = 'none';
+            restartBtn.style.display = 'none';
+            loadQuestion();
+        });
+
+        // 加载问题
+        function loadQuestion() {
+            const wordData = words[currentQuestion];
+            currentWordEl.textContent = wordData.word;
+            progressEl.textContent = `问题 ${currentQuestion + 1}/${words.length}`;
+            
+            // 清除之前的选项和反馈
+            optionsContainer.innerHTML = '';
+            feedbackEl.textContent = '';
+            feedbackEl.className = 'feedback';
+            nextBtn.style.display = 'none';
+            selectedOption = null;
+
+            // 创建新选项
+            wordData.options.forEach((option, index) => {
+                const optionEl = document.createElement('div');
+                optionEl.className = 'option';
+                optionEl.textContent = option;
+                optionEl.dataset.index = index;
+                optionEl.addEventListener('click', selectOption);
+                optionsContainer.appendChild(optionEl);
+            });
+        }
+
+        // 选择选项
+        function selectOption(e) {
+            if (quizCompleted || selectedOption !== null) return;
+
+            const selectedEl = e.target;
+            const selectedIndex = selectedEl.dataset.index;
+            const correctAnswer = words[currentQuestion].meaning;
+            const userAnswer = words[currentQuestion].options[selectedIndex];
+
+            // 标记选中的选项
+            selectedEl.classList.add('selected');
+            selectedOption = selectedIndex;
+
+            // 检查答案
+            if (userAnswer === correctAnswer) {
+                selectedEl.classList.add('correct');
+                feedbackEl.textContent = '正确!';
+                feedbackEl.className = 'feedback correct-feedback';
+                score++;
+                scoreEl.textContent = `得分: ${score}`;
+            } else {
+                selectedEl.classList.add('incorrect');
+                feedbackEl.textContent = `错误! 正确答案是: ${correctAnswer}`;
+                feedbackEl.className = 'feedback incorrect-feedback';
+                
+                // 标记正确答案
+                const options = optionsContainer.querySelectorAll('.option');
+                options.forEach(option => {
+                    if (option.textContent === correctAnswer) {
+                        option.classList.add('correct');
+                    }
+                });
+            }
+
+            nextBtn.style.display = 'block';
+        }
+
+        // 显示结果
+        function showResult() {
+            quizCompleted = true;
+            quizContainer.style.display = 'none';
+            resultContainer.style.display = 'block';
+            restartBtn.style.display = 'block';
+            
+            const percentage = Math.round((score / words.length) * 100);
+            let message = '';
+            
+            if (percentage >= 90) {
+                message = `太棒了! 你的得分是 ${score}/${words.length} (${percentage}%)`;
+            } else if (percentage >= 70) {
+                message = `做得不错! 你的得分是 ${score}/${words.length} (${percentage}%)`;
+            } else if (percentage >= 50) {
+                message = `还可以! 你的得分是 ${score}/${words.length} (${percentage}%)`;
+            } else {
+                message = `需要继续努力! 你的得分是 ${score}/${words.length} (${percentage}%)`;
+            }
+            
+            resultContainer.textContent = message;
+        }
+
+        // 发音功能
+        function pronounceWord(word) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(word);
+                utterance.lang = 'en-US';
+                speechSynthesis.speak(utterance);
+            } else {
+                alert('您的浏览器不支持语音合成功能，请使用Chrome或Edge等现代浏览器。');
+            }
+        }
+
+        // 辅助函数：打乱数组顺序
+        function shuffleArray(array) {
+            const newArray = [...array];
+            for (let i = newArray.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+            }
+            return newArray;
+        }
+    </script>
+</body>
+</html>

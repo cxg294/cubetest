@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>英语单词听写测验</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        .word-card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .play-btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .play-btn:hover {
+            background-color: #2980b9;
+        }
+        input[type="text"] {
+            padding: 8px;
+            width: 200px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .check-btn {
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        .check-btn:hover {
+            background-color: #27ae60;
+        }
+        .result {
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        .correct {
+            color: #27ae60;
+        }
+        .incorrect {
+            color: #e74c3c;
+        }
+        .score {
+            text-align: center;
+            font-size: 18px;
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #ecf0f1;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>英语单词听写测验</h1>
+    <div class="score">得分: <span id="score">0</span>/9</div>
+    
+    <div id="word-container"></div>
+    
+    <script>
+        // 单词列表
+        const words = [
+            { text: "vegetable", audio: "https://dict.youdao.com/dictvoice?audio=vegetable&type=1" },
+            { text: "ambulance", audio: "https://dict.youdao.com/dictvoice?audio=ambulance&type=1" },
+            { text: "admire", audio: "https://dict.youdao.com/dictvoice?audio=admire&type=1" },
+            { text: "chaos", audio: "https://dict.youdao.com/dictvoice?audio=chaos&type=1" },
+            { text: "stubborn", audio: "https://dict.youdao.com/dictvoice?audio=stubborn&type=1" },
+            { text: "balloon", audio: "https://dict.youdao.com/dictvoice?audio=balloon&type=1" },
+            { text: "luggage", audio: "https://dict.youdao.com/dictvoice?audio=luggage&type=1" },
+            { text: "kangaroo", audio: "https://dict.youdao.com/dictvoice?audio=kangaroo&type=1" },
+            { text: "umbrella", audio: "https://dict.youdao.com/dictvoice?audio=umbrella&type=1" }
+        ];
+        
+        let score = 0;
+        const wordContainer = document.getElementById('word-container');
+        const scoreElement = document.getElementById('score');
+        
+        // 创建单词卡片
+        words.forEach((word, index) => {
+            const card = document.createElement('div');
+            card.className = 'word-card';
+            card.innerHTML = `
+                <h3>单词 ${index + 1}</h3>
+                <button class="play-btn" onclick="playWord('${word.audio}')">播放</button>
+                <input type="text" id="input-${index}" placeholder="输入你听到的单词">
+                <button class="check-btn" onclick="checkAnswer(${index}, '${word.text}')">检查</button>
+                <div class="result" id="result-${index}"></div>
+            `;
+            wordContainer.appendChild(card);
+        });
+        
+        // 播放单词发音
+        function playWord(audioUrl) {
+            const audio = new Audio(audioUrl);
+            audio.play();
+        }
+        
+        // 检查答案
+        function checkAnswer(index, correctWord) {
+            const userInput = document.getElementById(`input-${index}`).value.trim().toLowerCase();
+            const resultElement = document.getElementById(`result-${index}`);
+            
+            if (userInput === correctWord.toLowerCase()) {
+                resultElement.textContent = "正确!";
+                resultElement.className = "result correct";
+                score++;
+                scoreElement.textContent = score;
+            } else {
+                resultElement.textContent = `不正确! 正确答案是: ${correctWord}`;
+                resultElement.className = "result incorrect";
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>英语单词测验</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .quiz-container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+        }
+        .question {
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .question-text {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .option {
+            padding: 10px 15px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .option:hover {
+            background-color: #e0e0e0;
+        }
+        .option.selected {
+            background-color: #4a6fa5;
+            color: white;
+        }
+        .option.correct {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .option.incorrect {
+            background-color: #f44336;
+            color: white;
+        }
+        .feedback {
+            margin-top: 10px;
+            font-size: 14px;
+            display: none;
+        }
+        .feedback.correct {
+            color: #4CAF50;
+            display: block;
+        }
+        .feedback.incorrect {
+            color: #f44336;
+            display: block;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4a6fa5;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #3a5a8f;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .progress {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+        .score {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>英语单词测验</h1>
+    <div class="quiz-container">
+        <div id="questions-container"></div>
+        <div class="controls">
+            <button id="prev-btn" disabled>上一题</button>
+            <button id="next-btn">下一题</button>
+        </div>
+        <div class="progress">
+            <span id="current-question">1</span>/<span id="total-questions">0</span>
+        </div>
+        <div id="score" class="score"></div>
+    </div>
+
+    <script>
+        const questions = [
+            // 英译汉
+            {
+                type: 'en-to-zh',
+                question: "What is the Chinese meaning of 'vegetable'?",
+                options: ["救护车", "蔬菜", "钦佩", "混乱"],
+                answer: 1,
+                explanation: "'vegetable' 的中文意思是'蔬菜'。"
+            },
+            {
+                type: 'en-to-zh',
+                question: "What is the Chinese meaning of 'ambulance'?",
+                options: ["固执", "救护车", "行李", "袋鼠"],
+                answer: 1,
+                explanation: "'ambulance' 的中文意思是'救护车'。"
+            },
+            {
+                type: 'en-to-zh',
+                question: "What is the Chinese meaning of 'admire'?",
+                options: ["钦佩、羡慕", "混乱", "气球", "固执"],
+                answer: 0,
+                explanation: "'admire' 的中文意思是'钦佩、羡慕'。"
+            },
+            {
+                type: 'en-to-zh',
+                question: "What is the Chinese meaning of 'chaos'?",
+                options: ["雨伞", "混乱", "行李", "袋鼠"],
+                answer: 1,
+                explanation: "'chaos' 的中文意思是'混乱'。"
+            },
+            {
+                type: 'en-to-zh',
+                question: "What is the Chinese meaning of 'stubborn'?",
+                options: ["蔬菜", "固执", "气球", "救护车"],
+                answer: 1,
+                explanation: "'stubborn' 的中文意思是'固执'。"
+            },
+            // 汉译英
+            {
+                type: 'zh-to-en',
+                question: "'气球'的英文单词是什么？",
+                options: ["balloon", "luggage", "kangaroo", "umbrella"],
+                answer: 0,
+                explanation: "'气球'的英文单词是'balloon'。"
+            },
+            {
+                type: 'zh-to-en',
+                question: "'行李'的英文单词是什么？",
+                options: ["ambulance", "vegetable", "luggage", "chaos"],
+                answer: 2,
+                explanation: "'行李'的英文单词是'luggage'。"
+            },
+            {
+                type: 'zh-to-en',
+                question: "'袋鼠'的英文单词是什么？",
+                options: ["umbrella", "kangaroo", "stubborn", "admire"],
+                answer: 1,
+                explanation: "'袋鼠'的英文单词是'kangaroo'。"
+            },
+            {
+                type: 'zh-to-en',
+                question: "'雨伞'的英文单词是什么？",
+                options: ["vegetable", "ambulance", "balloon", "umbrella"],
+                answer: 3,
+                explanation: "'雨伞'的英文单词是'umbrella'。"
+            }
+        ];
+
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let userAnswers = new Array(questions.length).fill(null);
+
+        const questionsContainer = document.getElementById('questions-container');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const currentQuestionSpan = document.getElementById('current-question');
+        const totalQuestionsSpan = document.getElementById('total-questions');
+        const scoreElement = document.getElementById('score');
+
+        totalQuestionsSpan.textContent = questions.length;
+
+        function displayQuestion(index) {
+            const question = questions[index];
+            currentQuestionSpan.textContent = index + 1;
+
+            let questionHTML = `
+                <div class="question">
+                    <div class="question-text">${question.question}</div>
+                    <div class="options">
+            `;
+
+            question.options.forEach((option, i) => {
+                let optionClass = 'option';
+                if (userAnswers[index] !== null && userAnswers[index] === i) {
+                    optionClass += ' selected';
+                    if (i === question.answer) {
+                        optionClass += ' correct';
+                    } else {
+                        optionClass += ' incorrect';
+                    }
+                } else if (userAnswers[index] !== null && i === question.answer) {
+                    optionClass += ' correct';
+                }
+
+                questionHTML += `
+                    <div class="${optionClass}" data-index="${i}" onclick="selectOption(${index}, ${i})">
+                        ${option}
+                    </div>
+                `;
+            });
+
+            questionHTML += `</div>`;
+
+            if (userAnswers[index] !== null) {
+                const feedbackClass = userAnswers[index] === question.answer ? 'correct' : 'incorrect';
+                questionHTML += `
+                    <div class="feedback ${feedbackClass}">
+                        ${question.explanation}
+                    </div>
+                `;
+            }
+
+            questionHTML += `</div>`;
+            questionsContainer.innerHTML = questionHTML;
+
+            prevBtn.disabled = index === 0;
+            nextBtn.textContent = index === questions.length - 1 ? '查看结果' : '下一题';
+        }
+
+        function selectOption(questionIndex, optionIndex) {
+            if (userAnswers[questionIndex] !== null) return;
+
+            userAnswers[questionIndex] = optionIndex;
+            if (optionIndex === questions[questionIndex].answer) {
+                score++;
+            }
+            displayQuestion(questionIndex);
+        }
+
+        function showResults() {
+            questionsContainer.style.display = 'none';
+            prevBtn.style.display = 'none';
+            nextBtn.style.display = 'none';
+            document.querySelector('.progress').style.display = 'none';
+
+            scoreElement.style.display = 'block';
+            scoreElement.innerHTML = `
+                <h2>测验完成！</h2>
+                <p>你的得分: ${score}/${questions.length}</p>
+                <p>正确率: ${Math.round((score / questions.length) * 100)}%</p>
+                <button onclick="location.reload()">重新测验</button>
+            `;
+        }
+
+        prevBtn.addEventListener('click', () => {
+            if (currentQuestionIndex > 0) {
+                currentQuestionIndex--;
+                displayQuestion(currentQuestionIndex);
+            }
+        });
+
+        nextBtn.addEventListener('click', () => {
+            if (currentQuestionIndex < questions.length - 1) {
+                currentQuestionIndex++;
+                displayQuestion(currentQuestionIndex);
+            } else {
+                showResults();
+            }
+        });
+
+        // 初始显示第一个问题
+        displayQuestion(0);
+
+        // 全局函数供选项点击使用
+        window.selectOption = selectOption;
+    </script>
+</body>
+</html>

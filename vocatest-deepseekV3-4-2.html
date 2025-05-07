@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>英语单词听写测验</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #2c3e50;
+        }
+        .quiz-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+        .word-audio {
+            margin: 20px 0;
+        }
+        #audio-player {
+            width: 100%;
+            max-width: 300px;
+            margin: 0 auto;
+        }
+        #user-input {
+            width: 80%;
+            padding: 10px;
+            font-size: 18px;
+            margin: 20px 0;
+            border: 2px solid #3498db;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .progress {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        .result {
+            margin-top: 20px;
+            font-size: 18px;
+            min-height: 27px;
+        }
+        .correct {
+            color: green;
+        }
+        .incorrect {
+            color: red;
+        }
+        .score {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>英语单词听写测验</h1>
+    <div class="quiz-container">
+        <div class="word-audio">
+            <p>请听写以下单词:</p>
+            <audio id="audio-player" controls></audio>
+        </div>
+        <div>
+            <input type="text" id="user-input" placeholder="请输入您听到的单词">
+        </div>
+        <button id="check-btn">检查答案</button>
+        <button id="next-btn" style="display: none;">下一个单词</button>
+        <button id="repeat-btn">重复播放</button>
+        <div class="progress" id="progress">1/9</div>
+        <div class="result" id="result"></div>
+        <div class="score" id="score" style="display: none;"></div>
+    </div>
+
+    <script>
+        // 单词列表
+        const words = [
+            { text: "vegetable", audio: "https://dict.youdao.com/dictvoice?audio=vegetable&type=1" },
+            { text: "ambulance", audio: "https://dict.youdao.com/dictvoice?audio=ambulance&type=1" },
+            { text: "admire", audio: "https://dict.youdao.com/dictvoice?audio=admire&type=1" },
+            { text: "chaos", audio: "https://dict.youdao.com/dictvoice?audio=chaos&type=1" },
+            { text: "stubborn", audio: "https://dict.youdao.com/dictvoice?audio=stubborn&type=1" },
+            { text: "balloon", audio: "https://dict.youdao.com/dictvoice?audio=balloon&type=1" },
+            { text: "luggage", audio: "https://dict.youdao.com/dictvoice?audio=luggage&type=1" },
+            { text: "kangaroo", audio: "https://dict.youdao.com/dictvoice?audio=kangaroo&type=1" },
+            { text: "umbrella", audio: "https://dict.youdao.com/dictvoice?audio=umbrella&type=1" }
+        ];
+
+        // 打乱单词顺序
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        const shuffledWords = shuffleArray([...words]);
+        let currentWordIndex = 0;
+        let score = 0;
+        const totalWords = shuffledWords.length;
+
+        // 获取DOM元素
+        const audioPlayer = document.getElementById('audio-player');
+        const userInput = document.getElementById('user-input');
+        const checkBtn = document.getElementById('check-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const repeatBtn = document.getElementById('repeat-btn');
+        const progress = document.getElementById('progress');
+        const result = document.getElementById('result');
+        const scoreDisplay = document.getElementById('score');
+
+        // 初始化测验
+        function initQuiz() {
+            currentWordIndex = 0;
+            score = 0;
+            loadCurrentWord();
+        }
+
+        // 加载当前单词
+        function loadCurrentWord() {
+            if (currentWordIndex < totalWords) {
+                const currentWord = shuffledWords[currentWordIndex];
+                audioPlayer.src = currentWord.audio;
+                audioPlayer.play();
+                userInput.value = '';
+                userInput.focus();
+                result.textContent = '';
+                progress.textContent = `${currentWordIndex + 1}/${totalWords}`;
+                checkBtn.style.display = 'inline-block';
+                nextBtn.style.display = 'none';
+            } else {
+                // 测验结束
+                quizComplete();
+            }
+        }
+
+        // 检查答案
+        function checkAnswer() {
+            const currentWord = shuffledWords[currentWordIndex];
+            const userAnswer = userInput.value.trim().toLowerCase();
+            
+            if (userAnswer === currentWord.text.toLowerCase()) {
+                result.textContent = "正确!";
+                result.className = "result correct";
+                score++;
+            } else {
+                result.textContent = `不正确! 正确答案是: ${currentWord.text}`;
+                result.className = "result incorrect";
+            }
+            
+            checkBtn.style.display = 'none';
+            nextBtn.style.display = 'inline-block';
+        }
+
+        // 下一个单词
+        function nextWord() {
+            currentWordIndex++;
+            loadCurrentWord();
+        }
+
+        // 重复播放当前单词
+        function repeatWord() {
+            audioPlayer.play();
+        }
+
+        // 测验完成
+        function quizComplete() {
+            document.querySelector('.word-audio').innerHTML = '<h2>测验完成!</h2>';
+            userInput.style.display = 'none';
+            checkBtn.style.display = 'none';
+            nextBtn.style.display = 'none';
+            repeatBtn.style.display = 'none';
+            result.style.display = 'none';
+            
+            scoreDisplay.style.display = 'block';
+            scoreDisplay.textContent = `你的得分: ${score}/${totalWords}`;
+            
+            // 添加重新开始按钮
+            const restartBtn = document.createElement('button');
+            restartBtn.textContent = '重新开始测验';
+            restartBtn.id = 'restart-btn';
+            restartBtn.style.marginTop = '20px';
+            document.querySelector('.quiz-container').appendChild(restartBtn);
+            
+            restartBtn.addEventListener('click', function() {
+                location.reload();
+            });
+        }
+
+        // 事件监听
+        checkBtn.addEventListener('click', checkAnswer);
+        nextBtn.addEventListener('click', nextWord);
+        repeatBtn.addEventListener('click', repeatWord);
+        userInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                if (checkBtn.style.display !== 'none') {
+                    checkAnswer();
+                } else {
+                    nextWord();
+                }
+            }
+        });
+
+        // 开始测验
+        initQuiz();
+    </script>
+</body>
+</html>
