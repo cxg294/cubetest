@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
+    <title>单词闪卡程序</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f4f4f9;
+        }
+
+        .card {
+            width: 300px;
+            height: 400px;
+            perspective: 1000px;
+            margin: 20px;
+            cursor: pointer;
+        }
+
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+
+        .card.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .card-front,
+        .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-front {
+            background-color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .card-back {
+            background-color: #e9f2f9;
+            transform: rotateY(180deg);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .card-back img {
+            max-width: 100%;
+            max-height: 200px;
+            margin-bottom: 20px;
+        }
+
+        .card-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card-container">
+        <!-- Ambulance 卡片 -->
+        <div class="card">
+            <div class="card-inner">
+                <div class="card-front">
+                    Ambulance
+                </div>
+                <div class="card-back">
+                    <p>救护车</p>
+                    <img src="https://via.placeholder.com/200x150?text=Ambulance+Scene" alt="Ambulance 示意图片">
+                </div>
+            </div>
+        </div>
+        <!-- Pest 卡片 -->
+        <div class="card">
+            <div class="card-inner">
+                <div class="card-front">
+                    Pest
+                </div>
+                <div class="card-back">
+                    <p>害虫</p>
+                    <img src="https://via.placeholder.com/200x150?text=Pest+Scene" alt="Pest 示意图片">
+                </div>
+            </div>
+        </div>
+        <!-- Admire 卡片 -->
+        <div class="card">
+            <div class="card-inner">
+                <div class="card-front">
+                    Admire
+                </div>
+                <div class="card-back">
+                    <p>钦佩、羡慕</p>
+                    <img src="https://via.placeholder.com/200x150?text=Admire+Scene" alt="Admire 示意图片">
+                </div>
+            </div>
+        </div>
+        <!-- Chaos 卡片 -->
+        <div class="card">
+            <div class="card-inner">
+                <div class="card-front">
+                    Chaos
+                </div>
+                <div class="card-back">
+                    <p>混乱</p>
+                    <img src="https://via.placeholder.com/200x150?text=Chaos+Scene" alt="Chaos 示意图片">
+                </div>
+            </div>
+        </div>
+        <!-- Stubborn 卡片 -->
+        <div class="card">
+            <div class="card-inner">
+                <div class="card-front">
+                    Stubborn
+                </div>
+                <div class="card-back">
+                    <p>固执</p>
+                    <img src="https://via.placeholder.com/200x150?text=Stubborn+Scene" alt="Stubborn 示意图片">
+                </div>
+            </div>
+        </div>
+        <!-- Unbelievable 卡片 -->
+        <div class="card">
+            <div class="card-inner">
+                <div class="card-front">
+                    Unbelievable
+                </div>
+                <div class="card-back">
+                    <p>不可置信的</p>
+                    <img src="https://via.placeholder.com/200x150?text=Unbelievable+Scene" alt="Unbelievable 示意图片">
+                </div>
+            </div>
+        </div>
+        <!-- vegetable 卡片 -->
+        <div class="card">
+            <div class="card-inner">
+                <div class="card-front">
+                    vegetable
+                </div>
+                <div class="card-back">
+                    <p>蔬菜</p>
+                    <img src="https://via.placeholder.com/200x150?text=Vegetable+Scene" alt="Vegetable 示意图片">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cards = document.querySelectorAll('.card');
+        cards.forEach(card => {
+            card.addEventListener('click', () => {
+                card.classList.toggle('flipped');
+            });
+        });
+    </script>
+</body>
+
+</html>
+    
