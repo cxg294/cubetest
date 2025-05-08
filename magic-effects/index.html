@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>魔法特效互动</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>魔法特效互动</h1>
+        <div class="video-container">
+            <video id="video" playsinline autoplay></video>
+            <canvas id="canvas"></canvas>
+            <div id="loading">
+                <div class="spinner"></div>
+                <p>正在加载模型...</p>
+            </div>
+        </div>
+        <div class="instructions">
+            <h2>使用说明：</h2>
+            <ul>
+                <li>✊ <strong>左手握拳</strong>：手腕处喷射火焰特效</li>
+                <li>✊ <strong>右手握拳</strong>：手腕处喷射寒冰特效</li>
+                <li>☝️☝️ <strong>双手食指和中指伸出</strong>：在两指尖之间形成彩色激光</li>
+                <li>🗣️ <strong>张嘴说话</strong>：嘴巴发射小狗表情</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- 引入本地MediaPipe库 -->
+    <script src="libs/camera_utils.js"></script>
+    <script src="libs/control_utils.js"></script>
+    <script src="libs/drawing_utils.js"></script>
+    <script src="libs/hands.js"></script>
+    <script src="libs/face_mesh.js"></script>
+    
+    <!-- 引入我们的特效库和主要脚本 -->
+    <script src="libs/pixi.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html> 
