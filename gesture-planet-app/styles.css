@@ -1,0 +1,276 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #000;
+    color: #fff;
+    overflow: hidden;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding: 20px;
+}
+
+#info {
+    text-align: center;
+    margin-bottom: 20px;
+    z-index: 10;
+    position: relative;
+}
+
+#info h1 {
+    font-size: 24px;
+    margin-bottom: 10px;
+    color: #4fc3f7;
+}
+
+#info p {
+    font-size: 16px;
+    margin-bottom: 5px;
+    color: #b3e5fc;
+}
+
+#current-planet {
+    font-weight: bold;
+    color: #ffeb3b !important;
+}
+
+/* 控制面板样式 */
+.control-panel {
+    display: flex;
+    align-items: center;
+    margin: 0 10px;
+}
+
+/* 开关按钮样式 */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+    margin-right: 10px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #444;
+    transition: .4s;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+}
+
+input:checked + .slider {
+    background-color: #2196F3;
+}
+
+input:focus + .slider {
+    box-shadow: 0 0 1px #2196F3;
+}
+
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+.slider.round {
+    border-radius: 24px;
+}
+
+.slider.round:before {
+    border-radius: 50%;
+}
+
+.toggle-label {
+    color: #b3e5fc;
+    font-size: 14px;
+}
+
+#video-container {
+    position: relative;
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+#video {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1); /* 镜像显示 */
+    opacity: 0.8;
+    z-index: 1;
+}
+
+#output-canvas {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    transform: scaleX(-1); /* 镜像显示 */
+    z-index: 2;
+}
+
+#planet-container {
+    position: absolute;
+    z-index: 3;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+/* 深度指示器样式 */
+.depth-indicator {
+    margin: 10px auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 180px;
+    position: relative;
+    clear: both;
+}
+
+.depth-bar-container {
+    width: 100%;
+    height: 8px;
+    background-color: #333;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 5px;
+}
+
+.depth-bar {
+    height: 100%;
+    width: 50%;
+    background: linear-gradient(to right, #3498db, #2ecc71, #f39c12);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.depth-label {
+    color: #b3e5fc;
+    font-size: 12px;
+}
+
+/* 深度标签位置定位 */
+.depth-indicator {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 5px;
+}
+
+.depth-indicator .depth-label:nth-child(2) {
+    position: absolute;
+    left: 5px;
+    bottom: -15px;
+}
+
+.depth-indicator .depth-label:nth-child(3) {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: -15px;
+}
+
+.depth-indicator .depth-label:nth-child(4) {
+    position: absolute;
+    right: 5px;
+    bottom: -15px;
+}
+
+/* 标题行样式 */
+.header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    flex-wrap: wrap;
+}
+
+.header-row h1 {
+    font-size: 24px;
+    color: #4fc3f7;
+    margin: 0;
+    flex: 1;
+}
+
+.header-row p {
+    margin: 0 10px;
+    color: #ffeb3b;
+    font-weight: bold;
+}
+
+/* 操作说明切换按钮 */
+.toggle-btn {
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+    margin: 0 10px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+.toggle-btn:hover {
+    background-color: #0d8bf2;
+}
+
+.toggle-btn:active {
+    background-color: #0b7ad6;
+}
+
+/* 可折叠的操作说明面板 */
+.instructions-panel {
+    background-color: rgba(0, 0, 0, 0.7);
+    border-radius: 6px;
+    padding: 10px;
+    margin-top: 10px;
+    transition: max-height 0.5s ease, opacity 0.3s ease;
+    overflow: hidden;
+    max-height: 200px;
+    opacity: 1;
+}
+
+.instructions-panel p {
+    font-size: 14px;
+    color: #b3e5fc;
+    margin: 5px 0;
+}
+
+/* 隐藏状态 */
+.hidden {
+    max-height: 0;
+    opacity: 0;
+    padding: 0;
+    margin: 0;
+    pointer-events: none;
+} 

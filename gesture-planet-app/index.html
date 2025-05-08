@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手势控制星球</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 简化上方信息区域，只保留标题和当前星球 -->
+        <div id="info">
+            <div class="header-row">
+                <h1>手势控制星球</h1>
+                <p id="current-planet">当前星球：地球</p>
+                
+                <!-- 添加操作说明切换按钮 -->
+                <button id="toggle-instructions" class="toggle-btn">显示操作说明</button>
+                
+                <!-- 添加骨骼线显示开关 -->
+                <div class="control-panel">
+                    <label class="switch">
+                        <input type="checkbox" id="skeleton-toggle">
+                        <span class="slider round"></span>
+                    </label>
+                    <span class="toggle-label">显示手部骨骼线</span>
+                </div>
+            </div>
+            
+            <!-- 添加深度指示器 -->
+            <div class="depth-indicator" id="depth-indicator" style="display: none;">
+                <div class="depth-bar-container">
+                    <div class="depth-bar" id="depth-bar"></div>
+                </div>
+                <span class="depth-label">近</span>
+                <span class="depth-label">距离</span>
+                <span class="depth-label">远</span>
+            </div>
+            
+            <!-- 可折叠的操作说明区域 -->
+            <div id="instructions-panel" class="instructions-panel hidden">
+                <p>左手食指和中指指尖上方显示星球</p>
+                <p>左手靠近或远离摄像头可以改变星球大小</p>
+                <p>右手移动控制星球旋转</p>
+                <p>右手捏合再展开切换星球</p>
+            </div>
+        </div>
+        
+        <div id="video-container">
+            <video id="video" autoplay playsinline></video>
+            <canvas id="output-canvas"></canvas>
+            <div id="planet-container"></div>
+        </div>
+    </div>
+
+    <!-- 引入MediaPipe库 -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+
+    <!-- 引入Three.js -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/GLTFLoader.js"></script>
+
+    <!-- 应用脚本 -->
+    <script src="planets.js"></script>
+    <script src="handTracking.js"></script>
+    <script src="app.js"></script>
+</body>
+</html> 
