@@ -10,19 +10,34 @@ class PlanetSystem {
                 rotationSpeed: 0.001,
                 glowColor: 0xffff00,
                 glowIntensity: 0.7,
-                isEmissive: true
+                isEmissive: true,
+                // 详细信息
+                diameter: '1,392,700 km',
+                distance: '0 km（中心）',
+                orbit: '约2.5亿年（绕银河系中心）',
+                description: '太阳是太阳系的中心天体，占据太阳系总质量的99.86%。它是一颗黄矮星，通过核聚变反应产生巨大的能量。'
             },
             {
                 name: '水星',
                 texturePath: 'image/mercury.jpg',
                 size: 0.8,
-                rotationSpeed: 0.004
+                rotationSpeed: 0.004,
+                // 详细信息
+                diameter: '4,879 km',
+                distance: '5,790万 km',
+                orbit: '88天',
+                description: '水星是太阳系中最小且最接近太阳的行星，表面覆盖着陨石坑。由于没有大气层，温差极大，白天可达430°C，夜间低至-180°C。'
             },
             {
                 name: '金星',
                 texturePath: 'image/venus.jpg',
                 size: 1.2,
-                rotationSpeed: 0.002
+                rotationSpeed: 0.002,
+                // 详细信息
+                diameter: '12,104 km',
+                distance: '1.08亿 km',
+                orbit: '225天',
+                description: '金星是太阳系中最热的行星，表面温度可达465°C。它被厚厚的二氧化碳大气层包裹，造成强烈的温室效应。金星的自转方向与其他行星相反。'
             },
             {
                 name: '地球',
@@ -31,25 +46,45 @@ class PlanetSystem {
                 rotationSpeed: 0.003,
                 hasAtmosphere: true,
                 atmosphereColor: 0x00a1ff,
-                atmosphereSize: 1.05
+                atmosphereSize: 1.05,
+                // 详细信息
+                diameter: '12,742 km',
+                distance: '1.5亿 km',
+                orbit: '365.25天',
+                description: '地球是太阳系中第三颗行星，是目前已知唯一孕育和支持生命的天体。地球表面71%被水覆盖，拥有保护生命的臭氧层和磁场。'
             },
             {
                 name: '月球',
                 texturePath: 'image/moon.jpg',
                 size: 0.5,
-                rotationSpeed: 0.001
+                rotationSpeed: 0.001,
+                // 详细信息
+                diameter: '3,474 km',
+                distance: '384,400 km（距地球）',
+                orbit: '27.3天（绕地球）',
+                description: '月球是地球的唯一天然卫星，是太阳系中第五大卫星。它的引力影响着地球的潮汐。月球表面有大量陨石坑，几乎没有大气层。'
             },
             {
                 name: '火星',
                 texturePath: 'image/mars.jpg',
                 size: 1.1,
-                rotationSpeed: 0.003
+                rotationSpeed: 0.003,
+                // 详细信息
+                diameter: '6,779 km',
+                distance: '2.28亿 km',
+                orbit: '687天',
+                description: '火星被称为"红色星球"，因其表面富含氧化铁而呈现红色。它有两个小卫星：火卫一和火卫二。火星表面有最高的奥林匹斯山，高度为太阳系最高。'
             },
             {
                 name: '木星',
                 texturePath: 'image/jupiter.jpg',
                 size: 2.2,
-                rotationSpeed: 0.006
+                rotationSpeed: 0.006,
+                // 详细信息
+                diameter: '139,820 km',
+                distance: '7.78亿 km',
+                orbit: '11.86年',
+                description: '木星是太阳系中最大的行星，质量是太阳系中其他行星总和的2.5倍。它主要由氢和氦组成，表面有著名的大红斑，这是一个持续了至少300年的巨大风暴。'
             },
             {
                 name: '土星',
@@ -58,19 +93,34 @@ class PlanetSystem {
                 rotationSpeed: 0.005,
                 hasRings: true,
                 ringsTexturePath: 'image/saturn-rings.png',
-                ringsSize: 2.0
+                ringsSize: 2.0,
+                // 详细信息
+                diameter: '116,460 km',
+                distance: '14.3亿 km',
+                orbit: '29.5年',
+                description: '土星以其壮观的环系统而闻名，这些环主要由冰粒子和岩石碎片组成。土星有82个已知卫星，其中最大的土卫六（泰坦）是太阳系中唯一有浓厚大气层的卫星。'
             },
             {
                 name: '天王星',
                 texturePath: 'image/uranus.jpg',
                 size: 1.7,
-                rotationSpeed: 0.004
+                rotationSpeed: 0.004,
+                // 详细信息
+                diameter: '50,724 km',
+                distance: '28.7亿 km',
+                orbit: '84年',
+                description: '天王星的独特之处在于它的自转轴几乎与公转轨道平行，像是"侧卧"着公转。它呈青蓝色是因为大气中含有甲烷气体吸收了红光。天王星有27个已知卫星。'
             },
             {
                 name: '海王星',
                 texturePath: 'image/neptune.jpg',
                 size: 1.7,
-                rotationSpeed: 0.004
+                rotationSpeed: 0.004,
+                // 详细信息
+                diameter: '49,244 km',
+                distance: '45亿 km',
+                orbit: '165年',
+                description: '海王星是太阳系中最远的行星，表面有强烈的风暴系统，包括"大黑斑"。它的风速可达每小时2,100公里，是太阳系中最快的。海王星有14个已知卫星。'
             }
         ];
 
@@ -79,6 +129,13 @@ class PlanetSystem {
         this.planetMeshes = [];
         this.scene = null;
         this.initialRotationSpeed = 0.003;
+        
+        // 获取行星信息面板元素
+        this.planetInfoName = document.getElementById('planet-info-name');
+        this.planetDiameter = document.getElementById('planet-diameter');
+        this.planetDistance = document.getElementById('planet-distance');
+        this.planetOrbit = document.getElementById('planet-orbit');
+        this.planetDescription = document.getElementById('planet-description');
     }
 
     // 初始化场景
@@ -351,25 +408,31 @@ class PlanetSystem {
         return planetGroup;
     }
 
-    // 显示指定行星
+    // 显示行星
     showPlanet(index) {
-        // 隐藏所有行星
-        this.planetMeshes.forEach(planet => {
-            planet.visible = false;
-        });
+        // 隐藏当前行星
+        if (this.planetMeshes[this.currentPlanetIndex]) {
+            this.planetMeshes[this.currentPlanetIndex].visible = false;
+        }
         
-        // 显示选中的行星
-        this.planetMeshes[index].visible = true;
+        // 更新当前行星索引
         this.currentPlanetIndex = index;
         
-        // 重置星球位置到屏幕中央
-        const planet = this.planetMeshes[index];
-        planet.position.set(0, 0, 0); // 居中放置
-        planet.rotation.x = Math.PI * 0.1; // 保持一定角度的倾斜
-        planet.scale.set(1, 1, 1); // 重置为默认大小
+        // 获取新的行星对象
+        const planetToShow = this.planetMeshes[this.currentPlanetIndex];
         
-        // 更新UI显示
-        document.getElementById('current-planet').textContent = `当前星球：${this.planets[index].name}`;
+        if (planetToShow) {
+            // 重置行星位置和状态
+            planetToShow.position.set(0, 0, 0); // 居中放置
+            planetToShow.rotation.x = Math.PI * 0.1; // 保持一定角度的倾斜
+            planetToShow.scale.set(1, 1, 1); // 重置为默认大小
+            
+            // 显示行星
+            planetToShow.visible = true;
+            
+            // 更新行星信息面板
+            this.updatePlanetInfo(this.currentPlanetIndex);
+        }
     }
 
     // 切换到下一个行星
@@ -403,6 +466,31 @@ class PlanetSystem {
         if (planet && planet.userData.mainPlanet && enableRotation) {
             // 自动旋转 - 应用速度倍率
             planet.userData.mainPlanet.rotation.y += planet.userData.mainPlanet.userData.rotationSpeed * speedMultiplier;
+        }
+    }
+
+    // 更新行星信息面板
+    updatePlanetInfo(index) {
+        const planetData = this.planets[index];
+        
+        if (this.planetInfoName) {
+            this.planetInfoName.textContent = planetData.name;
+        }
+        
+        if (this.planetDiameter) {
+            this.planetDiameter.textContent = planetData.diameter;
+        }
+        
+        if (this.planetDistance) {
+            this.planetDistance.textContent = planetData.distance;
+        }
+        
+        if (this.planetOrbit) {
+            this.planetOrbit.textContent = planetData.orbit;
+        }
+        
+        if (this.planetDescription) {
+            this.planetDescription.textContent = planetData.description;
         }
     }
 } 

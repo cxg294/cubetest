@@ -8,14 +8,25 @@
 </head>
 <body>
     <div class="container">
-        <!-- 简化上方信息区域，只保留标题和当前星球 -->
+        <!-- 简化上方信息区域 -->
         <div id="info">
             <div class="header-row">
                 <h1>手势控制星球</h1>
-                <p id="current-planet">当前星球：地球</p>
+                
+                <!-- 将深度指示器集成到顶部 -->
+                <div class="depth-indicator" id="depth-indicator">
+                    <div class="depth-bar-container">
+                        <div class="depth-bar" id="depth-bar"></div>
+                    </div>
+                    <div class="depth-labels">
+                        <span class="depth-label">近</span>
+                        <span class="depth-label">距离</span>
+                        <span class="depth-label">远</span>
+                    </div>
+                </div>
                 
                 <!-- 添加操作说明切换按钮 -->
-                <button id="toggle-instructions" class="toggle-btn">显示操作说明</button>
+                <button id="toggle-instructions" class="toggle-btn">操作说明</button>
                 
                 <!-- 添加骨骼线显示开关 -->
                 <div class="control-panel">
@@ -26,43 +37,62 @@
                     <span class="toggle-label">显示手部骨骼线</span>
                 </div>
             </div>
-            
-            <!-- 添加深度指示器 -->
-            <div class="depth-indicator" id="depth-indicator" style="display: none;">
-                <div class="depth-bar-container">
-                    <div class="depth-bar" id="depth-bar"></div>
-                </div>
-                <span class="depth-label">近</span>
-                <span class="depth-label">距离</span>
-                <span class="depth-label">远</span>
-            </div>
-            
-            <!-- 可折叠的操作说明区域 -->
-            <div id="instructions-panel" class="instructions-panel hidden">
-                <p>左手食指和中指指尖上方显示星球</p>
-                <p>左手靠近或远离摄像头可以改变星球大小</p>
-                <p>右手移动控制星球旋转</p>
-                <p>右手捏合再展开切换星球</p>
-            </div>
         </div>
         
+        <!-- 视频容器 -->
         <div id="video-container">
             <video id="video" autoplay playsinline></video>
             <canvas id="output-canvas"></canvas>
             <div id="planet-container"></div>
+            
+            <!-- 添加行星信息浮窗 -->
+            <div id="planet-info-panel" class="planet-info-panel">
+                <div class="info-content">
+                    <h3 id="planet-info-name">地球</h3>
+                    <div class="planet-data">
+                        <div class="data-item">
+                            <span class="data-label">直径:</span>
+                            <span id="planet-diameter" class="data-value">12,742 km</span>
+                        </div>
+                        <div class="data-item">
+                            <span class="data-label">距离太阳:</span>
+                            <span id="planet-distance" class="data-value">1.5亿 km</span>
+                        </div>
+                        <div class="data-item">
+                            <span class="data-label">公转周期:</span>
+                            <span id="planet-orbit" class="data-value">365.25天</span>
+                        </div>
+                    </div>
+                    <p id="planet-description" class="planet-description">地球是太阳系中第三颗行星，是目前已知唯一孕育和支持生命的天体。</p>
+                </div>
+            </div>
+            
+            <!-- 可折叠的操作说明浮窗 -->
+            <div id="instructions-panel" class="instructions-panel hidden">
+                <div class="instructions-header">
+                    <h3>操作说明</h3>
+                    <button id="close-instructions" class="close-btn">&times;</button>
+                </div>
+                <div class="instructions-content">
+                    <p><span class="highlight">左手</span>食指和中指指尖上方显示星球</p>
+                    <p><span class="highlight">左手</span>靠近或远离摄像头可以改变星球大小</p>
+                    <p><span class="highlight">右手</span>移动控制星球旋转</p>
+                    <p><span class="highlight">右手</span>捏合再展开切换星球</p>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- 引入MediaPipe库 -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="libs/camera_utils.js"></script>
+    <script src="libs/control_utils.js"></script>
+    <script src="libs/drawing_utils.js"></script>
+    <script src="libs/hands.js"></script>
 
     <!-- 引入Three.js -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="libs/three.min.js"></script>
+    <script src="libs/OrbitControls.js"></script>
+    <script src="libs/GLTFLoader.js"></script>
 
     <!-- 应用脚本 -->
     <script src="planets.js"></script>

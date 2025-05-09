@@ -148,61 +148,41 @@ input:checked + .slider:before {
 
 /* 深度指示器样式 */
 .depth-indicator {
-    margin: 10px auto;
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 180px;
+    width: 140px;
     position: relative;
-    clear: both;
+    margin: 0 10px;
 }
 
 .depth-bar-container {
     width: 100%;
-    height: 8px;
+    height: 5px;
     background-color: #333;
-    border-radius: 4px;
+    border-radius: 3px;
     overflow: hidden;
-    margin-bottom: 5px;
 }
 
 .depth-bar {
     height: 100%;
     width: 50%;
     background: linear-gradient(to right, #3498db, #2ecc71, #f39c12);
-    border-radius: 4px;
+    border-radius: 3px;
     transition: width 0.3s ease;
+}
+
+/* 深度标签容器 */
+.depth-labels {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    margin-top: 2px;
 }
 
 .depth-label {
     color: #b3e5fc;
-    font-size: 12px;
-}
-
-/* 深度标签位置定位 */
-.depth-indicator {
-    display: flex;
-    justify-content: space-between;
-    padding: 0 5px;
-}
-
-.depth-indicator .depth-label:nth-child(2) {
-    position: absolute;
-    left: 5px;
-    bottom: -15px;
-}
-
-.depth-indicator .depth-label:nth-child(3) {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    bottom: -15px;
-}
-
-.depth-indicator .depth-label:nth-child(4) {
-    position: absolute;
-    right: 5px;
-    bottom: -15px;
+    font-size: 10px;
 }
 
 /* 标题行样式 */
@@ -210,21 +190,18 @@ input:checked + .slider:before {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 5px 0;
+    padding: 8px 12px;
     flex-wrap: wrap;
+    background-color: rgba(0, 0, 0, 0.5);
+    border-radius: 8px;
+    margin-bottom: 10px;
 }
 
 .header-row h1 {
-    font-size: 24px;
+    font-size: 20px;
     color: #4fc3f7;
     margin: 0;
-    flex: 1;
-}
-
-.header-row p {
-    margin: 0 10px;
-    color: #ffeb3b;
-    font-weight: bold;
+    white-space: nowrap;
 }
 
 /* 操作说明切换按钮 */
@@ -238,6 +215,7 @@ input:checked + .slider:before {
     cursor: pointer;
     font-size: 14px;
     transition: background-color 0.3s;
+    white-space: nowrap;
 }
 
 .toggle-btn:hover {
@@ -250,27 +228,168 @@ input:checked + .slider:before {
 
 /* 可折叠的操作说明面板 */
 .instructions-panel {
-    background-color: rgba(0, 0, 0, 0.7);
-    border-radius: 6px;
-    padding: 10px;
-    margin-top: 10px;
-    transition: max-height 0.5s ease, opacity 0.3s ease;
+    position: absolute;
+    top: 50px;
+    right: 20px;
+    background-color: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(5px);
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    width: 300px;
+    max-width: 90%;
+    z-index: 100;
+    transition: all 0.3s ease;
     overflow: hidden;
-    max-height: 200px;
-    opacity: 1;
 }
 
-.instructions-panel p {
+.instructions-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    background-color: rgba(33, 150, 243, 0.2);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.instructions-header h3 {
+    margin: 0;
+    color: #ffeb3b;
+    font-size: 16px;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0 5px;
+}
+
+.instructions-content {
+    padding: 12px 15px;
+}
+
+.instructions-content p {
     font-size: 14px;
-    color: #b3e5fc;
-    margin: 5px 0;
+    color: #e0e0e0;
+    margin: 8px 0;
+    line-height: 1.4;
+}
+
+.highlight {
+    color: #ffeb3b;
+    font-weight: bold;
+    margin-right: 5px;
 }
 
 /* 隐藏状态 */
 .hidden {
-    max-height: 0;
-    opacity: 0;
-    padding: 0;
-    margin: 0;
-    pointer-events: none;
+    display: none !important;
+}
+
+/* 行星信息面板样式 */
+.planet-info-panel {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 800px;
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+    z-index: 10;
+    transition: all 0.3s ease;
+    /* 提高透明度以减少视觉干扰 */
+    opacity: 0.85;
+    /* 添加悬停效果 */
+    pointer-events: auto;
+}
+
+.planet-info-panel:hover {
+    opacity: 0.95;
+    transform: translateX(-50%) translateY(-5px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+}
+
+.info-content {
+    padding: 12px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.planet-info-panel h3 {
+    color: #ffeb3b;
+    margin: 0 0 8px 0;
+    font-size: 22px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.planet-data {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.data-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0 15px;
+    min-width: 120px;
+}
+
+.data-label {
+    font-size: 12px;
+    color: #b3e5fc;
+    margin-bottom: 3px;
+}
+
+.data-value {
+    font-size: 15px;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.planet-description {
+    font-size: 14px;
+    color: #e0e0e0;
+    text-align: center;
+    margin: 5px 0 0 0;
+    line-height: 1.4;
+    /* 限制最大高度，避免过长文本影响手势识别 */
+    max-height: 80px;
+    overflow-y: auto;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .planet-data {
+        flex-direction: column;
+    }
+    
+    .data-item {
+        margin: 5px 0;
+    }
+    
+    .planet-info-panel {
+        width: 95%;
+    }
+    
+    .info-content {
+        padding: 10px 15px;
+    }
+    
+    .planet-info-panel h3 {
+        font-size: 20px;
+    }
 } 

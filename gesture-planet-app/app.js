@@ -16,6 +16,9 @@ class GesturePlanetApp {
         const skeletonToggle = document.getElementById('skeleton-toggle');
         this.handGestureController.setSkeletonVisible(skeletonToggle.checked);
         
+        // 初始化操作说明面板
+        this.setupInstructionsPanel();
+        
         // 开始动画循环
         this.animate();
         
@@ -75,16 +78,37 @@ class GesturePlanetApp {
         this.scene.add(pointLight);
     }
     
+    // 设置操作说明面板
+    setupInstructionsPanel() {
+        const toggleBtn = document.getElementById('toggle-instructions');
+        const instructionsPanel = document.getElementById('instructions-panel');
+        const closeBtn = document.getElementById('close-instructions');
+        
+        // 显示说明面板
+        toggleBtn.addEventListener('click', () => {
+            instructionsPanel.classList.remove('hidden');
+        });
+        
+        // 关闭说明面板
+        closeBtn.addEventListener('click', () => {
+            instructionsPanel.classList.add('hidden');
+        });
+        
+        // 点击面板外部关闭面板
+        document.addEventListener('click', (event) => {
+            if (!instructionsPanel.contains(event.target) && 
+                event.target !== toggleBtn && 
+                !instructionsPanel.classList.contains('hidden')) {
+                instructionsPanel.classList.add('hidden');
+            }
+        });
+    }
+    
     // 设置手势控制回调
     setupHandGestureCallbacks() {
         // 初始化深度指示器
         const depthIndicator = document.getElementById('depth-indicator');
         const depthBar = document.getElementById('depth-bar');
-        
-        // 如果找到深度指示器元素，显示它
-        if (depthIndicator && depthBar) {
-            depthIndicator.style.display = 'flex';
-        }
         
         // 处理左手位置更新（更新星球位置和大小）
         this.handGestureController.setLeftHandUpdateCallback((midPoint) => {
@@ -182,7 +206,8 @@ class GesturePlanetApp {
         
         // 处理右手移动（控制星球旋转）
         this.handGestureController.setRightHandMoveCallback((deltaX, deltaY) => {
-            this.planetSystem.rotatePlanet(deltaX * 25, deltaY * 25);
+            // 将deltaY取反，颠倒上下方向，保持左右方向不变
+            this.planetSystem.rotatePlanet(deltaX * 25, -deltaY * 25);
         });
         
         // 处理星球切换
@@ -222,7 +247,7 @@ class GesturePlanetApp {
         const enableAutoRotation = !rightHandVisible;
         
         // 更新行星旋转 - 根据右手是否可见决定是否启用自动旋转
-        this.planetSystem.update(3.0, enableAutoRotation);
+        this.planetSystem.update(6.0, enableAutoRotation);
         
         // 渲染场景
         this.renderer.render(this.scene, this.camera);
@@ -237,28 +262,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
     
-    // 初始化操作说明切换功能
-    const toggleInstructionsBtn = document.getElementById('toggle-instructions');
-    const instructionsPanel = document.getElementById('instructions-panel');
-    
-    if (toggleInstructionsBtn && instructionsPanel) {
-        toggleInstructionsBtn.addEventListener('click', () => {
-            instructionsPanel.classList.toggle('hidden');
-            toggleInstructionsBtn.textContent = 
-                instructionsPanel.classList.contains('hidden') 
-                    ? '显示操作说明' 
-                    : '隐藏操作说明';
-        });
-    }
-    
-    // 请求摄像头权限
-    navigator.mediaDevices.getUserMedia({ video: true })
-        .then(() => {
-            // 权限获取成功，初始化应用
-            const app = new GesturePlanetApp();
-        })
-        .catch((error) => {
-            console.error('无法访问摄像头:', error);
-            alert('无法访问摄像头，请确保已授予权限并且摄像头未被其他应用占用。');
-        });
+    // 初始化应用
+    new GesturePlanetApp();
 }); 
