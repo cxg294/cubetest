@@ -1,0 +1,235 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #121212;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 10px; /* Add some padding for very small screens */
+}
+
+/* Main layout container - Allow it to be wider */
+.main-content-area {
+    display: flex;
+    flex-direction: row; 
+    align-items: flex-start; 
+    gap: 20px; 
+    width: 100%;
+    max-width: 1400px; /* Increased max-width for larger screens */
+    padding: 10px; /* Padding inside the main area */
+}
+
+/* Column for the game canvas - Allow it to take more space */
+.game-column {
+    flex: 3; /* Give more weight to game column */
+    display: flex;
+    justify-content: center; 
+    align-items: center;
+    min-width: 0; /* Allow shrinking */
+}
+
+/* Responsive Game Container */
+.game-container {
+    position: relative;
+    width: 100%; /* Fill the game-column width */
+    max-width: 600px; /* Game won't scale larger than its design resolution */
+    aspect-ratio: 600 / 800; /* Maintain 3:4 aspect ratio */
+    margin: 0 auto; /* Center if game-column is wider than max-width */
+    border-radius: 10px;
+    overflow: hidden;
+    border: 2px solid #444;
+    background-color: #000; /* Added a fallback background for the game area */
+}
+
+/* Sidebar for UI elements - Make it slightly more flexible */
+.ui-sidebar {
+    flex: 1; /* Take remaining space, but less than game */
+    min-width: 200px; /* Minimum width before it gets too cramped */
+    max-width: 280px; /* Slightly more max width */
+    display: flex;
+    flex-direction: column;
+    align-items: center; 
+    gap: 15px; /* Adjusted gap */
+    padding: 15px;
+    background-color: rgba(0, 0, 0, 0.4);
+    border-radius: 10px;
+    font-family: 'Consolas', 'Courier New', monospace; 
+}
+
+/* Video and canvas fill the responsive .game-container */
+#video, #gameCanvas, #handDebugCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* For video */
+}
+
+/* Ensure other styles like .game-info, .controls, buttons, etc., are still appropriate. 
+   Font sizes in the sidebar might need vw or media queries for extreme responsiveness, 
+   but for now, the current setup should adapt reasonably well with the sidebar's min/max width. */
+
+/* (Keep other specific styles for #video, #gameCanvas, .ui-sidebar .score, etc., as they are, 
+    unless they have fixed pixel dimensions that conflict with the new flexible approach) */
+
+/* Example of what might have been an old .container style that should be removed or verified: */
+/* 
+.container {
+    width: 100%;
+    max-width: 600px; 
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+*/
+
+/* ... (rest of existing specific styles for elements within sidebar, buttons, etc.) ... */
+
+.game-info {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    padding: 10px;
+    background-color: rgba(0, 0, 0, 0.5);
+    border-radius: 10px;
+    font-size: 1.2rem;
+}
+
+/* 视频层 */
+#video {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1); /* 镜像显示 */
+}
+
+/* 游戏画布层 */
+#gameCanvas {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+}
+
+/* 面部识别画布层 */
+#faceCanvas {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    z-index: 3;
+    opacity: 0.5;
+    display: none; /* 默认隐藏，调试时可以显示 */
+}
+
+.controls {
+    display: flex;
+    gap: 20px;
+}
+
+button {
+    padding: 10px 20px;
+    font-size: 1rem;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    background-color: #4CAF50;
+    color: white;
+    transition: all 0.2s;
+}
+
+button:hover {
+    background-color: #388E3C;
+}
+
+#pauseButton {
+    background-color: #FF9800;
+}
+
+#pauseButton:hover {
+    background-color: #F57C00;
+}
+
+.status-message {
+    font-size: 1.2rem;
+    text-align: center;
+    padding: 10px;
+    border-radius: 5px;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.hidden {
+    display: none;
+}
+
+.game-info,
+.controls,
+.game-status {
+    width: 100%; /* Make sections take full width of sidebar */
+    display: flex;
+    flex-direction: column; /* Stack items vertically */
+    align-items: center; /* Center items like buttons */
+    gap: 10px;
+}
+
+.game-info {
+    font-size: 1.1rem; /* Slightly smaller if needed in sidebar */
+    background-color: transparent; /* Remove individual background if sidebar has one */
+    padding: 0; /* Remove individual padding */
+}
+
+.controls button {
+    width: 90%; /* Buttons take most of the sidebar width */
+    margin-bottom: 5px;
+}
+
+.status-message {
+    font-size: 1rem; /* Adjust as needed */
+    text-align: center;
+    padding: 8px;
+    background-color: rgba(0, 0, 0, 0.5);
+    border-radius: 5px;
+}
+
+.ui-sidebar .game-info .score,
+.ui-sidebar .game-info .lives {
+    font-size: 1.2rem; /* Larger font for score/lives */
+    font-weight: bold;
+    color: #E0E0E0; /* Light gray, not stark white */
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.7); /* Stronger shadow for readability */
+    margin-bottom: 5px; /* Spacing */
+}
+
+.ui-sidebar .game-info .score span,
+.ui-sidebar .game-info .lives span {
+    color: #FFFFFF; /* Actual numbers in white */
+    margin-left: 5px;
+}
+
+.ui-sidebar .controls button {
+    font-family: inherit; /* Inherit from sidebar for consistency */
+    font-size: 0.95rem;
+    padding: 12px 15px; /* Adjust padding */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2); /* Subtle shadow for buttons */
+}
+
+.ui-sidebar .status-message {
+    font-size: 0.9rem; 
+    font-family: inherit;
+    color: #CCCCCC;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6);
+    background-color: rgba(0, 0, 0, 0.6); /* Darker background for messages */
+}
+
+#video { transform: scaleX(-1); z-index: 1; }
+#gameCanvas { z-index: 2; }
+#handDebugCanvas { z-index: 3; opacity: 0.5; display: none; } 

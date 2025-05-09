@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>出口成章 - 文字演示</title>
+    <!-- MediaPipe Face Mesh -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            overflow: hidden;
+            background-color: #000;
+            color: #fff;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #output_canvas {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            transform: scale(-1, 1); /* 镜像画布而不是视频 */
+        }
+        
+        #video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            visibility: hidden;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 10;
+        }
+        
+        button {
+            background-color: rgba(255, 255, 255, 0.2);
+            border: 2px solid #fff;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background-color: rgba(255, 255, 255, 0.4);
+        }
+        
+        #status {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #fff;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            z-index: 100;
+        }
+        
+        #loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        #loading h1 {
+            font-size: 36px;
+            margin-bottom: 20px;
+            color: #fff;
+        }
+        
+        .progress {
+            width: 300px;
+            height: 20px;
+            background-color: #333;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            width: 0;
+            background-color: #4CAF50;
+            transition: width 0.3s;
+        }
+        
+        .text-element {
+            position: fixed;
+            font-family: 'Microsoft YaHei', sans-serif;
+            font-weight: bold;
+            color: white;
+            font-size: 50px; /* 增大字体大小 */
+            z-index: 1000;
+            text-shadow: 3px 3px 5px rgba(0,0,0,0.7); /* 增强阴影 */
+            pointer-events: none;
+        }
+        
+        #text-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <h1>出口成章</h1>
+        <div class="progress">
+            <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        <p id="loading-text">加载资源中...</p>
+    </div>
+
+    <div id="container">
+        <video id="video" playsinline></video>
+        <canvas id="output_canvas"></canvas>
+        <div id="text-container"></div>
+        <div id="status">准备中...</div>
+        
+        <div id="controls">
+            <button id="btn-1">诗词</button>
+            <button id="btn-2">成语</button>
+            <button id="btn-3">名言</button>
+            <button id="btn-4">问候</button>
+            <button id="btn-test">测试</button>
+        </div>
+    </div>
+
+    <script>
+        let faceMesh;
+        let videoElement;
+        let canvasElement;
+        let canvasCtx;
+        let cameraRunning = false;
+        let mouthOpen = false;
+        let lastMouthOpenState = false;
+        let mouthPosition = { x: 0, y: 0 };
+        let textElements = [];
+        let creatingText = false; // 正在创建文字的标志
+        let maxTextElements = 20; // 减少最大文字数量
+        let lastFaceDetectionTime = 0;
+        let faceDetectionInterval = 100; // 增加面部检测间隔
+        let poetryIndex = 0; // 跟踪诗词顺序
+        let animationFrameId = null;
+        let lastCharXOffset = 0; // 上一个字符的X偏移量
+        let textContainer;
+        let phraseActive = false; // 新增：跟踪当前是否有台词正在显示
+        let currentPhraseLength = 0; // 新增：当前台词的长度
+        let currentPhraseCreated = 0; // 新增：当前已创建的字符数
+        let activePhraseTimer = null; // 新增：台词活跃状态计时器
+        
+        // 预置台词
+        const phrases = {
+            poetry: [
+                "床前明月光",
+                "疑是地上霜",
+                "举头望明月",
+                "低头思故乡"
+            ],
+            idioms: [
+                "出口成章",
+                "妙笔生花",
+                "博学多才",
+                "学富五车"
+            ],
+            quotes: [
+                "知之为知之",
+                "不知为不知",
+                "三人行必有我师"
+            ],
+            greetings: [
+                "你好",
+                "早上好",
+                "下午好",
+                "晚上好"
+            ]
+        };
+        
+        // 当前选择的台词类别
+        let currentPhraseType = 'poetry';
+        
+        // 颜色数组
+        const colors = [
+            '#ff4b4b', // 红
+            '#ff8e3c', // 橙
+            '#ffe03c', // 黄
+            '#3cff3c', // 绿
+            '#3ca9ff', // 蓝
+            '#a13cff', // 紫
+            '#ff3cec'  // 粉
+        ];
+        
+        // 加载进度
+        let totalResources = 1; // 只有面部模型
+        let loadedResources = 0;
+        
+        // 初始化
+        function init() {
+            // 更新加载进度
+            updateLoadingProgress(0, "初始化系统...");
+            
+            // 获取文字容器
+            textContainer = document.getElementById('text-container');
+            
+            // 初始化视频
+            videoElement = document.getElementById('video');
+            canvasElement = document.getElementById('output_canvas');
+            canvasCtx = canvasElement.getContext('2d');
+            
+            // 设置canvas大小
+            canvasElement.width = window.innerWidth;
+            canvasElement.height = window.innerHeight;
+            
+            // 初始化MediaPipe
+            initFaceMesh();
+            
+            // 初始化按钮事件
+            document.getElementById('btn-1').addEventListener('click', () => { 
+                currentPhraseType = 'poetry'; 
+                poetryIndex = 0; // 重置诗词索引
+            });
+            document.getElementById('btn-2').addEventListener('click', () => { currentPhraseType = 'idioms'; });
+            document.getElementById('btn-3').addEventListener('click', () => { currentPhraseType = 'quotes'; });
+            document.getElementById('btn-4').addEventListener('click', () => { currentPhraseType = 'greetings'; });
+            
+            // 添加测试按钮
+            document.getElementById('btn-test').addEventListener('click', () => {
+                if (!phraseActive) { // 只有当没有台词在播放时才能触发新台词
+                    mouthPosition = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+                    startCreatingText();
+                    lastCharXOffset = 0;
+                }
+            });
+            
+            // 窗口大小变化时调整
+            window.addEventListener('resize', onWindowResize);
+            
+            // 开始动画循环
+            startAnimationLoop();
+            
+            // 添加调试按钮（测试用）
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Enter') {
+                    console.log("手动触发创建文字");
+                    if (!phraseActive) { // 只有当没有台词在播放时才能触发新台词
+                        mouthPosition = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+                        startCreatingText();
+                        lastCharXOffset = 0;
+                    }
+                }
+            });
+        }
+        
+        // 初始化面部识别
+        function initFaceMesh() {
+            updateLoadingProgress(30, "加载面部识别模型...");
+            
+            faceMesh = new FaceMesh({
+                locateFile: (file) => {
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+                }
+            });
+            
+            faceMesh.setOptions({
+                maxNumFaces: 3, // 从1增加到3，支持多人同时使用
+                refineLandmarks: true,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+            
+            faceMesh.onResults(onFaceResults);
+            
+            const camera = new Camera(videoElement, {
+                onFrame: async () => {
+                    // 节流面部检测，减少CPU使用
+                    const now = Date.now();
+                    if (now - lastFaceDetectionTime > faceDetectionInterval) {
+                        await faceMesh.send({ image: videoElement });
+                        lastFaceDetectionTime = now;
+                    }
+                },
+                width: 1280,
+                height: 720
+            });
+            
+            camera.start()
+                .then(() => {
+                    cameraRunning = true;
+                    resourceLoaded("面部识别模型加载完成");
+                })
+                .catch(error => {
+                    console.error('无法访问摄像头: ', error);
+                    document.getElementById('status').innerText = "摄像头访问失败，请确保已授权";
+                });
+        }
+        
+        // 处理面部识别结果
+        function onFaceResults(results) {
+            if (!results.multiFaceLandmarks) return;
+            
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            
+            // 绘制视频
+            canvasCtx.drawImage(
+                results.image, 0, 0, canvasElement.width, canvasElement.height);
+            
+            // 检测所有检测到的人脸
+            if (results.multiFaceLandmarks.length > 0) {
+                // 遍历所有检测到的人脸
+                for(let faceIndex = 0; faceIndex < results.multiFaceLandmarks.length; faceIndex++) {
+                    const landmarks = results.multiFaceLandmarks[faceIndex];
+                    
+                    // 上嘴唇中点 (13)
+                    const upperLip = landmarks[13];
+                    // 下嘴唇中点 (14)
+                    const lowerLip = landmarks[14];
+                    
+                    // 计算嘴巴开合程度 (垂直距离)
+                    const mouthDistance = Math.abs(upperLip.y - lowerLip.y);
+                    
+                    // 判断嘴巴是否足够张开
+                    const currentMouthOpen = mouthDistance > 0.05; // 阈值可调整
+                    
+                    // 获取嘴巴位置 (注意镜像调整)
+                    const currentMouthPosition = {
+                        x: (1 - landmarks[13].x) * window.innerWidth, // 水平镜像调整
+                        y: landmarks[13].y * window.innerHeight
+                    };
+                    
+                    // 为每个人脸维护状态（使用faceIndex作为标识）
+                    if(!window.faceStates) window.faceStates = {};
+                    if(!window.faceStates[faceIndex]) {
+                        window.faceStates[faceIndex] = {
+                            mouthOpen: false,
+                            lastMouthOpenState: false
+                        };
+                    }
+                    
+                    // 状态变化时创建文字
+                    if (currentMouthOpen && !window.faceStates[faceIndex].lastMouthOpenState && !creatingText && !phraseActive) {
+                        // 只有当没有台词在播放时才能触发新台词
+                        mouthPosition = currentMouthPosition;
+                        startCreatingText();
+                        lastCharXOffset = 0; // 重置字符偏移
+                    }
+                    
+                    // 更新状态
+                    window.faceStates[faceIndex].mouthOpen = currentMouthOpen;
+                    window.faceStates[faceIndex].lastMouthOpenState = currentMouthOpen;
+                    
+                    // 如果有人张嘴，更新全局mouthOpen状态
+                    if(currentMouthOpen) mouthOpen = true;
+                }
+                
+                // 更新状态指示
+                document.getElementById('status').innerText = mouthOpen ? 
+                    (phraseActive ? "检测到嘴巴张开（请等待当前台词结束）" : "检测到嘴巴张开") : 
+                    (phraseActive ? "等待当前台词结束..." : "等待张嘴...");
+                
+                // 重置全局mouthOpen，以便下一帧检测
+                mouthOpen = false;
+            }
+            
+            canvasCtx.restore();
+        }
+        
+        // 开始创建文字序列
+        function startCreatingText() {
+            if (creatingText) return;
+            
+            creatingText = true;
+            phraseActive = true; // 标记当前有台词在播放
+            console.log("开始创建文字序列");
+            
+            // 选择台词
+            let phrase;
+            
+            if (currentPhraseType === 'poetry') {
+                // 诗词按顺序显示
+                phrase = phrases.poetry[poetryIndex];
+                poetryIndex = (poetryIndex + 1) % phrases.poetry.length; // 循环显示
+            } else {
+                // 其他类别随机选择
+                const availablePhrases = phrases[currentPhraseType];
+                phrase = availablePhrases[Math.floor(Math.random() * availablePhrases.length)];
+            }
+            
+            // 记录当前台词长度和创建计数
+            currentPhraseLength = phrase.length;
+            currentPhraseCreated = 0;
+            
+            // 随机选择颜色
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            
+            // 随机字体大小
+            const fontSize = Math.floor(Math.random() * 15 + 40); // 增大字体大小范围
+            
+            // 初始位置
+            const startX = mouthPosition.x;
+            const startY = mouthPosition.y;
+            
+            // 为整个句子决定统一的方向：-1表示左，1表示右
+            const phraseDirection = Math.random() > 0.5 ? 1 : -1;
+            
+            // 为整个句子生成统一的物理参数
+            const phrasePhysics = {
+                velocityX: phraseDirection * (3 + Math.random() * 3), // 水平速度
+                velocityY: -Math.random() * 2 - 1.5, // 上升速度
+                rotationSpeed: phraseDirection * (Math.random() * 0.6 + 0.3), // 旋转速度
+                gravity: 0.08 // 重力
+            };
+            
+            console.log("选择的词组:", phrase, "起始位置:", startX, startY, "方向:", phraseDirection);
+            
+            // 调整字符间隔时间，增加到200ms以减少重叠
+            const charDelay = 200;
+            
+            // 逐个字符创建文字
+            createCharactersSequentially(phrase, color, fontSize, startX, startY, 0, phrasePhysics, charDelay);
+            
+            // 设置台词活跃状态计时器 (根据台词长度和字符间隔计算总时间)
+            const phraseDisplayTime = (phrase.length * charDelay) - charDelay;
+            clearTimeout(activePhraseTimer);
+            activePhraseTimer = setTimeout(() => {
+                phraseActive = false;
+                console.log("台词显示结束，可以开始下一句");
+            }, phraseDisplayTime);
+        }
+        
+        // 逐个创建字符
+        function createCharactersSequentially(phrase, color, fontSize, startX, startY, index, phrasePhysics, charDelay) {
+            if (index >= phrase.length) {
+                creatingText = false;
+                console.log("文字序列创建完成");
+                return;
+            }
+            
+            const char = phrase[index];
+            console.log("创建字符:", char, "索引:", index);
+            
+            // 创建单个字符，使用统一的物理参数但添加微小变化
+            createFloatingChar(char, color, fontSize, startX, startY, phrasePhysics, index);
+            
+            // 更新计数
+            currentPhraseCreated++;
+            
+            // 延迟创建下一个字符
+            setTimeout(() => {
+                createCharactersSequentially(phrase, color, fontSize, startX, startY, index + 1, phrasePhysics, charDelay);
+            }, charDelay); // 使用传入的字符间延迟时间
+        }
+        
+        // 创建漂浮字符
+        function createFloatingChar(char, color, fontSize, x, y, physics, charIndex) {
+            console.log("创建漂浮字符:", char, "位置:", x, y);
+            
+            // 限制最大文字数量（性能优化）
+            if (textElements.length >= maxTextElements) {
+                // 移除最早创建的文字
+                const oldestText = textElements.shift();
+                if (oldestText.element.parentNode) {
+                    oldestText.element.parentNode.removeChild(oldestText.element);
+                }
+            }
+            
+            // 计算垂直偏移 - 根据字符索引交替上下偏移，避免重叠
+            const verticalOffset = (charIndex % 2 === 0) ? 
+                -10 - (charIndex * 5) : // 偶数索引的字符向上偏移
+                 10 + (charIndex * 5);  // 奇数索引的字符向下偏移
+            
+            // 创建DOM元素
+            const textElement = document.createElement('div');
+            textElement.className = 'text-element';
+            textElement.textContent = char;
+            textElement.style.fontSize = fontSize + 'px';
+            textElement.style.color = color;
+            textElement.style.left = x + 'px';
+            textElement.style.top = (y + verticalOffset) + 'px'; // 添加垂直偏移
+            
+            // 添加微小的速度变化，使轨迹略有不同但总体保持一致
+            const speedVariation = 0.8 + (Math.random() * 0.4); // 0.8-1.2之间的随机值
+            const angleVariation = Math.random() * 0.2 - 0.1; // -0.1到0.1之间的随机角度变化
+            
+            // 使用传入的统一物理属性，但添加微小变化
+            const textData = {
+                element: textElement,
+                x: x,
+                y: y + verticalOffset, // 应用垂直偏移
+                velocityX: physics.velocityX * speedVariation, // 添加速度变化
+                velocityY: physics.velocityY * speedVariation + angleVariation, // 添加上升速度变化
+                rotation: 0,
+                rotationSpeed: physics.rotationSpeed * (0.9 + Math.random() * 0.2), // 轻微改变旋转速度
+                gravity: physics.gravity * (0.95 + Math.random() * 0.1), // 轻微改变重力
+                age: 0,
+                maxAge: 150 // 生命周期
+            };
+            
+            textContainer.appendChild(textElement);
+            textElements.push(textData);
+            console.log("文字元素已添加到DOM，当前文字数量:", textElements.length);
+        }
+        
+        // 动画循环
+        function startAnimationLoop() {
+            // 使用requestAnimationFrame替代setInterval
+            function animate() {
+                updateTextElements();
+                animationFrameId = requestAnimationFrame(animate);
+            }
+            animate();
+        }
+        
+        // 更新文字元素位置
+        function updateTextElements() {
+            for (let i = textElements.length - 1; i >= 0; i--) {
+                const textData = textElements[i];
+                
+                // 应用重力
+                textData.velocityY += textData.gravity;
+                
+                // 更新位置
+                textData.x += textData.velocityX;
+                textData.y += textData.velocityY;
+                
+                // 逐渐减小水平速度（阻尼效果）
+                textData.velocityX *= 0.99;
+                
+                // 添加旋转阻尼，使旋转速度随时间逐渐减小
+                textData.rotationSpeed *= 0.98;
+                
+                // 旋转
+                textData.rotation += textData.rotationSpeed;
+                
+                // 更新DOM元素位置
+                const element = textData.element;
+                element.style.left = textData.x + 'px';
+                element.style.top = textData.y + 'px';
+                element.style.transform = `rotate(${textData.rotation}deg)`;
+                
+                // 增加年龄
+                textData.age++;
+                
+                // 淡出效果
+                if (textData.age > textData.maxAge * 0.7) {
+                    const opacity = 1 - (textData.age - textData.maxAge * 0.7) / (textData.maxAge * 0.3);
+                    element.style.opacity = Math.max(0, opacity);
+                }
+                
+                // 超出寿命或超出屏幕底部则移除
+                if (textData.age > textData.maxAge || textData.y > window.innerHeight + 50) {
+                    if (element.parentNode) {
+                        element.parentNode.removeChild(element);
+                    }
+                    textElements.splice(i, 1);
+                }
+            }
+        }
+        
+        // 窗口大小变化时调整
+        function onWindowResize() {
+            canvasElement.width = window.innerWidth;
+            canvasElement.height = window.innerHeight;
+        }
+        
+        // 资源加载完成
+        function resourceLoaded(message) {
+            console.log(message);
+            loadedResources++;
+            const progress = (loadedResources / totalResources) * 100;
+            updateLoadingProgress(progress, message);
+            
+            if (loadedResources >= totalResources) {
+                setTimeout(() => {
+                    document.getElementById('loading').style.display = 'none';
+                }, 500);
+            }
+        }
+        
+        // 更新加载进度
+        function updateLoadingProgress(progress, message) {
+            document.getElementById('progress-bar').style.width = `${Math.max(5, progress)}%`;
+            document.getElementById('loading-text').innerText = message || "加载中...";
+        }
+        
+        // 开始初始化
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html> 

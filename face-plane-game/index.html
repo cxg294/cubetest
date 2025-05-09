@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手势识别飞机大战</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+    <div class="main-content-area">
+        <div class="game-column">
+            <div class="game-container">
+                <video id="video" autoplay muted playsinline></video>
+                <canvas id="gameCanvas"></canvas>
+                <canvas id="handDebugCanvas" style="position: absolute; left: 0; top: 0; z-index: 4; opacity: 0.7; display: none;"></canvas>
+            </div>
+        </div>
+
+        <div class="ui-sidebar">
+            <div class="game-info">
+                <div class="score">分数: <span id="score">0</span></div>
+                <div class="lives">生命: <span id="lives">3</span></div>
+            </div>
+            <div class="controls">
+                <button id="startButton">开始游戏</button>
+                <button id="pauseButton">暂停</button>
+            </div>
+            <div class="game-status">
+                <div id="loading" class="status-message">加载手势识别模型中...</div>
+                <div id="gameOver" class="status-message hidden">游戏结束! 点击"开始游戏"重新开始</div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="game.js"></script>
+</body>
+</html> 
