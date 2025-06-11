@@ -1,0 +1,3045 @@
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
+
+// 场景配置
+let scene, camera, renderer, controls;
+let sun, planets = {}, isPaused = false;
+let speedFactor = 1;
+let selectedPlanet = null;
+let textureLoader = new THREE.TextureLoader();
+let raycaster = new THREE.Raycaster();
+let mouse = new THREE.Vector2();
+let hoveredObject = null;
+let labelRenderer;
+let solarSystemGroup; // 太阳系总父节点
+let starField; // 用于存储星空对象
+let isARMode = false; // AR模式状态标记
+
+// 添加相机动画相关变量
+let isAnimatingCamera = false;
+let cameraAnimationStartTime = 0;
+let cameraAnimationDuration = 2000; // 动画持续时间（毫秒）
+let cameraStartPosition = new THREE.Vector3();
+let cameraTargetPosition = new THREE.Vector3();
+let controlsStartTarget = new THREE.Vector3();
+let controlsTargetPosition = new THREE.Vector3();
+
+// 纹理基础路径（改为本地路径）
+const TEXTURE_BASE_URL = './src/assets/textures/';
+
+// 行星信息（相对比例参考，非真实比例）
+const PLANET_DATA = {
+    sun: { 
+        radius: 5, 
+        texture: TEXTURE_BASE_URL + 'sun.jpg', 
+        emissive: 0xffff00,
+        emissiveIntensity: 0.6, // 从1降低到0.6
+        rotationSpeed: 0.0005, // 太阳自转周期约25-35天
+        pulseEnabled: true, // 控制太阳脉动动画
+        info: {
+            name: "太阳",
+            diameter: "1,392,700 公里",
+            distance: "0 天文单位",
+            orbitPeriod: "--",
+            rotationPeriod: "25-35 天（根据纬度）",
+            moonsCount: "0",
+            temperature: "5,500°C（表面）",
+            description: "太阳系的中心恒星，一个由热气体组成的巨大球体，通过核聚变产生能量。它占了太阳系总质量的99.86%。"
+        }
+    },
+    mercury: { 
+        radius: 0.4, 
+        semimajorAxis: 10,  // 半长轴
+        eccentricity: 0.205, // 偏心率
+        inclination: 7.0,   // 轨道倾角（度）
+        speed: 0.04, 
+        rotationSpeed: 0.0002, // 自转周期约59天
+        texture: TEXTURE_BASE_URL + 'mercury.jpg',
+        info: {
+            name: "水星",
+            diameter: "4,880 公里",
+            distance: "0.39 天文单位",
+            orbitPeriod: "88 天",
+            rotationPeriod: "59 天",
+            moonsCount: "0",
+            temperature: "-173°C 至 427°C",
+            description: "太阳系最小的行星，也是最靠近太阳的行星。它的表面覆盖着陨石坑，没有大气层，温度变化极大。"
+        }
+    },
+    venus: { 
+        radius: 0.9, 
+        semimajorAxis: 15,
+        eccentricity: 0.007,
+        inclination: 3.4,
+        speed: 0.015, 
+        rotationSpeed: -0.00005, // 逆向自转，周期约243天
+        texture: TEXTURE_BASE_URL + 'venus.jpg',
+        info: {
+            name: "金星",
+            diameter: "12,104 公里",
+            distance: "0.72 天文单位",
+            orbitPeriod: "225 天",
+            rotationPeriod: "243 天（逆行）",
+            moonsCount: "0",
+            temperature: "462°C",
+            description: "有时被称为地球的姐妹星，因其大小和质量与地球相似。它具有非常厚的大气层，主要由二氧化碳组成，导致强烈的温室效应和极高的表面温度。"
+        }
+    },
+    earth: { 
+        radius: 1, 
+        semimajorAxis: 20,
+        eccentricity: 0.017,
+        inclination: 0.0,
+        speed: 0.01, 
+        rotationSpeed: 0.01, // 自转周期约24小时
+        texture: TEXTURE_BASE_URL + 'earth.jpg',
+        cloudTexture: TEXTURE_BASE_URL + 'earth_clouds.jpg',  // 添加云层贴图
+        bumpTexture: TEXTURE_BASE_URL + 'earth_bump.jpg',    // 添加凹凸贴图
+        specularTexture: TEXTURE_BASE_URL + 'earth_specular.jpg', // 添加高光贴图
+        moons: [
+            { 
+                radius: 0.3, 
+                semimajorAxis: 2,
+                eccentricity: 0.0549,
+                inclination: 5.145,
+                speed: 0.03, 
+                rotationSpeed: 0.0043, // 自转周期约27.3天（同步自转）
+                texture: TEXTURE_BASE_URL + 'moon.jpg',
+                bumpTexture: TEXTURE_BASE_URL + 'moon_bump.jpg', // 月球凹凸贴图
+                info: {
+                    name: "月球",
+                    diameter: "3,474 公里",
+                    distance: "384,400 公里（地球）",
+                    orbitPeriod: "27.3 天",
+                    rotationPeriod: "27.3 天（同步自转）",
+                    temperature: "-233°C 至 123°C",
+                    description: "地球唯一的自然卫星，是太阳系中第五大卫星。月球对地球潮汐有显著影响，并稳定地球的自转轴。"
+                }
+            }
+        ],
+        info: {
+            name: "地球",
+            diameter: "12,756 公里",
+            distance: "1 天文单位",
+            orbitPeriod: "365.25 天",
+            rotationPeriod: "24 小时",
+            moonsCount: "1",
+            temperature: "-88°C 至 58°C",
+            description: "我们的家园，是目前已知唯一存在生命的行星。它的表面有71%被水覆盖，拥有维持生命的大气层和磁场。"
+        }
+    },
+    mars: { 
+        radius: 0.5, 
+        semimajorAxis: 25,
+        eccentricity: 0.093,
+        inclination: 1.9,
+        speed: 0.008, 
+        rotationSpeed: 0.0098, // 自转周期约24.6小时
+        texture: TEXTURE_BASE_URL + 'mars.jpg',
+        info: {
+            name: "火星",
+            diameter: "6,792 公里",
+            distance: "1.52 天文单位",
+            orbitPeriod: "687 天",
+            rotationPeriod: "24.6 小时",
+            moonsCount: "2",
+            temperature: "-153°C 至 20°C",
+            description: "被称为红色星球，因其表面富含氧化铁（铁锈）而呈现红色。火星有薄薄的大气层，季节变化，极冠，山谷和沙漠。"
+        }
+    },
+    jupiter: { 
+        radius: 2.5, 
+        semimajorAxis: 40,
+        eccentricity: 0.048,
+        inclination: 1.3,
+        speed: 0.002, 
+        rotationSpeed: 0.024, // 自转周期约9.9小时（最快）
+        texture: TEXTURE_BASE_URL + 'jupiter.jpg',
+        cloudTexture: TEXTURE_BASE_URL + 'jupiter_clouds.jpg', // 添加云层
+        info: {
+            name: "木星",
+            diameter: "142,984 公里",
+            distance: "5.2 天文单位",
+            orbitPeriod: "11.86 年",
+            rotationPeriod: "9.9 小时",
+            moonsCount: "79+",
+            temperature: "-145°C",
+            description: "太阳系最大的行星，是一个气态巨行星。它主要由氢和氦组成，有明显的条纹状云层和壮观的大红斑（一个持续数百年的巨大风暴）。"
+        }
+    },
+    saturn: { 
+        radius: 2.2, 
+        semimajorAxis: 55,
+        eccentricity: 0.056,
+        inclination: 2.5,
+        speed: 0.0009, 
+        rotationSpeed: 0.022, // 自转周期约10.7小时
+        texture: TEXTURE_BASE_URL + 'saturn.jpg',
+        cloudTexture: TEXTURE_BASE_URL + 'saturn_clouds.jpg', // 添加云层
+        rings: { 
+            innerRadius: 2.5, 
+            outerRadius: 4, 
+            texture: TEXTURE_BASE_URL + 'saturn-rings.png'
+        },
+        info: {
+            name: "土星",
+            diameter: "120,536 公里",
+            distance: "9.54 天文单位",
+            orbitPeriod: "29.46 年",
+            rotationPeriod: "10.7 小时",
+            moonsCount: "82+",
+            temperature: "-178°C",
+            description: "以其壮观的环系统而闻名，这些环由冰粒子和小岩石碎片组成。土星是太阳系中第二大的行星，也是一个气态巨行星。"
+        }
+    },
+    uranus: { 
+        radius: 1.8, 
+        semimajorAxis: 70,
+        eccentricity: 0.046,
+        inclination: 0.8,
+        speed: 0.0004, 
+        rotationSpeed: -0.014, // 逆向自转，周期约17.2小时
+        texture: TEXTURE_BASE_URL + 'uranus.jpg',
+        info: {
+            name: "天王星",
+            diameter: "51,118 公里",
+            distance: "19.18 天文单位",
+            orbitPeriod: "84.01 年",
+            rotationPeriod: "17.2 小时（逆行）",
+            moonsCount: "27",
+            temperature: "-224°C",
+            description: "一颗冰巨行星，由于其含有甲烷的大气层而呈现蓝绿色。它的旋转轴几乎与其公转平面平行，就像是'侧躺'着绕太阳公转。"
+        }
+    },
+    neptune: { 
+        radius: 1.7, 
+        semimajorAxis: 85,
+        eccentricity: 0.010,
+        inclination: 1.8,
+        speed: 0.0001, 
+        rotationSpeed: 0.015, // 自转周期约16.1小时
+        texture: TEXTURE_BASE_URL + 'neptune.jpg',
+        info: {
+            name: "海王星",
+            diameter: "49,528 公里",
+            distance: "30.07 天文单位",
+            orbitPeriod: "164.8 年",
+            rotationPeriod: "16.1 小时",
+            moonsCount: "14",
+            temperature: "-218°C",
+            description: "太阳系中最远的行星（自从冥王星被重新分类为矮行星以来），也是一颗冰巨行星。它有风速可达2,100公里/小时的剧烈风暴。"
+        }
+    }
+};
+
+// 初始化场景
+function init() {
+    // 创建场景
+    scene = new THREE.Scene();
+    
+    // 新增：初始化太阳系总父节点并添加到场景
+    solarSystemGroup = new THREE.Group();
+    scene.add(solarSystemGroup);
+    
+    // 计算可用空间 - 只使用页面左侧70%的宽度
+    const availableWidth = window.innerWidth * 0.7;
+    
+    // 创建相机
+    camera = new THREE.PerspectiveCamera(
+        60, availableWidth / window.innerHeight, 0.1, 1000
+    );
+    camera.position.set(0, 50, 100);
+    
+    // 创建渲染器
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    // 设置渲染视口
+    renderer.setViewport(0, 0, availableWidth, window.innerHeight);
+    document.getElementById('container').appendChild(renderer.domElement);
+    
+    // 添加轨道控制
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    
+    // 添加环境光 - 提升强度以增强整体光照
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.5); // 将强度从0.2提升到0.5
+    scene.add(ambientLight);
+
+    // 添加平行光（模拟主太阳光）
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.8); // 从1.5提升到1.8
+    directionalLight.position.set(5, 3, 5);
+    scene.add(directionalLight);
+
+    // 添加辅助光源（提供补充照明）
+    const fillLight = new THREE.PointLight(0xffffff, 0.8); // 从0.5提升到0.8
+    fillLight.position.set(-5, -3, 5);
+    scene.add(fillLight);
+    
+    // 创建行星
+    createSolarSystem();
+    
+    // 添加星空背景
+    createStarfield();
+    
+    // 添加事件监听
+    window.addEventListener('resize', onWindowResize);
+    document.getElementById('pause-btn').addEventListener('click', togglePause);
+    document.getElementById('reset-view-btn').addEventListener('click', resetView);
+    document.getElementById('speed-slider').addEventListener('input', updateSpeed);
+    document.getElementById('close-info').addEventListener('click', closePlanetInfo);
+    
+    // 添加行星选择事件处理
+    setupPlanetSelection();
+    
+    // 添加鼠标交互事件
+    addMouseInteraction();
+    
+    // 开始动画循环
+    animate();
+}
+
+// 太阳脉动控制功能已移除
+
+// 添加行星选择事件处理
+function setupPlanetSelection() {
+    const planetItems = document.querySelectorAll('#planet-selection li');
+    planetItems.forEach(item => {
+        item.addEventListener('click', function() {
+            const planetName = this.getAttribute('data-planet');
+            selectPlanet(planetName);
+            
+            // 更新选中状态样式
+            planetItems.forEach(el => el.classList.remove('active'));
+            this.classList.add('active');
+        });
+    });
+}
+
+// 选择行星
+function selectPlanet(planetName) {
+    selectedPlanet = planetName;
+    
+    // 显示行星信息面板
+    const planetInfo = document.getElementById('planet-info');
+    planetInfo.classList.remove('hidden');
+    
+    // 更新行星信息
+    const info = PLANET_DATA[planetName].info;
+    document.getElementById('planet-name').textContent = info.name;
+    document.getElementById('planet-diameter').textContent = info.diameter;
+    document.getElementById('planet-distance').textContent = info.distance;
+    document.getElementById('planet-orbit-period').textContent = info.orbitPeriod;
+    document.getElementById('planet-rotation-period').textContent = info.rotationPeriod;
+    document.getElementById('planet-moons-count').textContent = info.moonsCount;
+    document.getElementById('planet-temperature').textContent = info.temperature;
+    document.getElementById('planet-description').textContent = info.description;
+    
+    // 将相机移动到选中的行星
+    if (planetName === 'sun') {
+        focusOnPlanet(sun);
+    } else if (planets[planetName]) {
+        focusOnPlanet(planets[planetName]);
+    }
+}
+
+// 移动相机到选中的行星
+function focusOnPlanet(planet) {
+    if (!planet) return;
+    
+    // 设置相机动画起始值
+    cameraStartPosition.copy(camera.position);
+    controlsStartTarget.copy(controls.target);
+    
+    // 计算目标位置
+    const planetPos = planet.position.clone();
+    
+    // 计算基于行星大小的适当距离
+    let planetRadius = 1;
+    if (planet.geometry && planet.geometry.parameters) {
+        planetRadius = planet.geometry.parameters.radius || 1;
+    }
+    // 减小距离因子，使相机更靠近行星
+    const distanceFactor = planetRadius * 6;
+    
+    // 计算目标相机位置（在行星前方一定距离处，调整位置使行星更居中）
+    cameraTargetPosition.copy(planetPos).add(new THREE.Vector3(distanceFactor, distanceFactor/3, distanceFactor));
+    
+    // 目标控制中心为行星位置
+    controlsTargetPosition.copy(planetPos);
+    
+    // 启动动画
+    isAnimatingCamera = true;
+    cameraAnimationStartTime = Date.now();
+    
+    // 更新行星信息面板
+    const planetName = planet.userData.name;
+    
+    // 显示行星信息
+    if (PLANET_DATA[planetName]) {
+        const info = PLANET_DATA[planetName].info;
+        document.getElementById('planet-name').textContent = info.name;
+        document.getElementById('planet-diameter').textContent = info.diameter;
+        document.getElementById('planet-distance').textContent = info.distance;
+        document.getElementById('planet-orbit-period').textContent = info.orbitPeriod;
+        document.getElementById('planet-rotation-period').textContent = info.rotationPeriod;
+        document.getElementById('planet-moons-count').textContent = info.moonsCount;
+        document.getElementById('planet-temperature').textContent = info.temperature;
+        document.getElementById('planet-description').textContent = info.description;
+        document.getElementById('planet-info').classList.remove('hidden');
+    }
+}
+
+// 关闭行星信息面板
+function closePlanetInfo() {
+    document.getElementById('planet-info').classList.add('hidden');
+    selectedPlanet = null;
+    
+    // 移除行星选择的活动状态
+    const planetItems = document.querySelectorAll('#planet-selection li');
+    planetItems.forEach(el => el.classList.remove('active'));
+}
+
+// 创建星空背景
+function createStarfield() {
+    const starGeometry = new THREE.BufferGeometry();
+    const starMaterial = new THREE.PointsMaterial({
+        color: 0xffffff,
+        size: 0.5,
+    });
+    
+    const starVertices = [];
+    for (let i = 0; i < 10000; i++) {
+        const x = (Math.random() - 0.5) * 2000;
+        const y = (Math.random() - 0.5) * 2000;
+        const z = (Math.random() - 0.5) * 2000;
+        starVertices.push(x, y, z);
+    }
+    
+    starGeometry.setAttribute(
+        'position',
+        new THREE.Float32BufferAttribute(starVertices, 3)
+    );
+    
+    starField = new THREE.Points(starGeometry, starMaterial);
+    scene.add(starField);
+    
+    // 新增：添加星云效果 - 确保调用此函数
+    createNebulas();
+    
+    // 新增：添加整体星系发光效果
+    createGalacticGlow();
+}
+
+// 新增：创建整体星系发光效果
+function createGalacticGlow() {
+    // 创建大型发光球体 - 通过几何体和缩放实现扁平椭圆形状
+    const glowGeometry = new THREE.SphereGeometry(200, 64, 32);
+    const glowMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            "c": { value: 0.15 },           // 降低发光强度
+            "p": { value: 2.0 },           // 降低值使边缘更柔和
+            glowColor: { value: new THREE.Color(0xffffff).multiplyScalar(0.8) }, // 降低亮度
+            viewVector: { value: new THREE.Vector3() }
+        },
+        vertexShader: `
+            uniform vec3 viewVector;
+            uniform float c;
+            uniform float p;
+            varying float intensity;
+            void main() {
+                vec3 vNormal = normalize(normalMatrix * normal);
+                vec3 vNormel = normalize(normalMatrix * viewVector);
+                intensity = pow(c - dot(vNormal, vNormel), p);
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 glowColor;
+            varying float intensity;
+            void main() {
+                // 使用平方根函数让边缘更加柔和
+                float fadeEdge = sqrt(intensity);
+                // 平滑截断非常低的值以消除黑色边缘
+                float alphaValue = fadeEdge > 0.01 ? fadeEdge : 0.0;
+                vec3 glow = glowColor * fadeEdge;
+                gl_FragColor = vec4(glow, alphaValue * 0.7);  // 降低alpha值
+            }
+        `,
+        side: THREE.FrontSide, // 改为FrontSide，避免BackSide造成的边缘问题
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+        depthWrite: false
+    });
+
+    const glowSphere = new THREE.Mesh(glowGeometry, glowMaterial);
+    // 缩放Y轴使其扁平，形成椭圆形状
+    glowSphere.scale.set(1.0, 0.35, 1.0);
+    scene.add(glowSphere);
+    
+    // 创建第二层发光 - 添加不同颜色
+    const glowGeometry2 = new THREE.SphereGeometry(180, 64, 32);
+    const glowMaterial2 = new THREE.ShaderMaterial({
+        uniforms: {
+            "c": { value: 0.2 },
+            "p": { value: 1.8 },
+            glowColor: { value: new THREE.Color(0xffffff).multiplyScalar(0.8) }, // 降低亮度
+            viewVector: { value: new THREE.Vector3() }
+        },
+        vertexShader: glowMaterial.vertexShader,
+        fragmentShader: glowMaterial.fragmentShader,
+        side: THREE.FrontSide, // 同样改为FrontSide
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+        depthWrite: false
+    });
+
+    const glowSphere2 = new THREE.Mesh(glowGeometry2, glowMaterial2);
+    // 同样缩放Y轴使其扁平
+    glowSphere2.scale.set(1.0, 0.3, 1.0);
+    scene.add(glowSphere2);
+    
+    // 添加第三层 - 最白色的中心层
+    const glowGeometry3 = new THREE.SphereGeometry(150, 64, 32);
+    const glowMaterial3 = new THREE.ShaderMaterial({
+        uniforms: {
+            "c": { value: 0.3 },  // 减小强度
+            "p": { value: 1.5 },  // 降低值使边缘更柔和
+            glowColor: { value: new THREE.Color(0xffffff).multiplyScalar(0.9) }, // 降低亮度
+            viewVector: { value: new THREE.Vector3() }
+        },
+        vertexShader: glowMaterial.vertexShader,
+        fragmentShader: glowMaterial.fragmentShader,
+        side: THREE.FrontSide, // 同样改为FrontSide
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+        depthWrite: false
+    });
+
+    const glowSphere3 = new THREE.Mesh(glowGeometry3, glowMaterial3);
+    // 更扁平的中心
+    glowSphere3.scale.set(1.0, 0.25, 1.0);
+    scene.add(glowSphere3);
+    
+    // 添加一个额外的外层来消除边缘
+    const outerGlowGeometry = new THREE.SphereGeometry(220, 64, 32);
+    const outerGlowMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            "c": { value: 0.15 },  // 降低强度
+            "p": { value: 1.2 },  // 更小的p值使边缘更柔和
+            glowColor: { value: new THREE.Color(0xffffff).multiplyScalar(0.7) }, // 降低亮度
+            viewVector: { value: new THREE.Vector3() }
+        },
+        vertexShader: glowMaterial.vertexShader,
+        fragmentShader: `
+            uniform vec3 glowColor;
+            varying float intensity;
+            void main() {
+                // 使用更强的边缘淡出函数
+                float fadeEdge = pow(intensity, 0.4); // 降低指数使淡出更平滑
+                // 完全消除低值
+                float alphaValue = smoothstep(0.0, 0.1, fadeEdge) * 0.4; // 降低透明度最大值
+                vec3 glow = glowColor * fadeEdge;
+                gl_FragColor = vec4(glow, alphaValue);
+            }
+        `,
+        side: THREE.FrontSide,
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+        depthWrite: false
+    });
+
+    const outerGlowSphere = new THREE.Mesh(outerGlowGeometry, outerGlowMaterial);
+    // 更扁平的外层
+    outerGlowSphere.scale.set(1.0, 0.4, 1.0);
+    scene.add(outerGlowSphere);
+    
+    // 存储引用以便更新
+    const glowSphereOriginalScale = new THREE.Vector3(1.0, 0.35, 1.0);
+    const glowSphere2OriginalScale = new THREE.Vector3(1.0, 0.3, 1.0);
+    const glowSphere3OriginalScale = new THREE.Vector3(1.0, 0.25, 1.0);
+    const outerGlowSphereOriginalScale = new THREE.Vector3(1.0, 0.4, 1.0);
+    
+    scene.userData.galaxyGlow = {
+        layers: [
+            {
+                mesh: glowSphere,
+                material: glowMaterial,
+                baseColor: new THREE.Color(0xffffff).multiplyScalar(0.8), // 降低亮度
+                colorShift: 0.05, // 减少颜色变化幅度
+                originalScale: glowSphereOriginalScale
+            },
+            {
+                mesh: glowSphere2,
+                material: glowMaterial2,
+                baseColor: new THREE.Color(0xffffff).multiplyScalar(0.8), // 降低亮度
+                colorShift: 0.05, // 减少颜色变化
+                originalScale: glowSphere2OriginalScale
+            },
+            {
+                mesh: glowSphere3,
+                material: glowMaterial3,
+                baseColor: new THREE.Color(0xffffff).multiplyScalar(0.9), // 降低亮度
+                colorShift: 0.0, // 无颜色变化保持纯白
+                originalScale: glowSphere3OriginalScale
+            },
+            {
+                mesh: outerGlowSphere,
+                material: outerGlowMaterial,
+                baseColor: new THREE.Color(0xffffff).multiplyScalar(0.7), // 降低亮度
+                colorShift: 0.05, // 微小的颜色变化
+                originalScale: outerGlowSphereOriginalScale
+            }
+        ],
+        colorCycle: 0,
+        cycleSpeed: 0.001 // 保持缓慢的变化速度
+    };
+}
+
+// 创建太阳系
+function createSolarSystem() {
+    // 添加备用纹理材质处理，以防纹理加载失败
+    const fallbackMaterials = {
+        sun: new THREE.MeshBasicMaterial({ 
+            color: 0xffddaa  // 改为温暖的太阳色调
+        }),
+        mercury: new THREE.MeshStandardMaterial({ color: 0xaaaaaa }),
+        venus: new THREE.MeshStandardMaterial({ color: 0xf9d5a7 }),
+        earth: new THREE.MeshStandardMaterial({ color: 0x2233ff }),
+        mars: new THREE.MeshStandardMaterial({ color: 0xff4400 }),
+        jupiter: new THREE.MeshStandardMaterial({ color: 0xdda52d }),
+        saturn: new THREE.MeshStandardMaterial({ color: 0xdfd3a9 }),
+        uranus: new THREE.MeshStandardMaterial({ color: 0x99ccff }),
+        neptune: new THREE.MeshStandardMaterial({ color: 0x3366ff }),
+        moon: new THREE.MeshStandardMaterial({ color: 0xffffff })
+    };
+
+    // 创建太阳
+    const sunGeometry = new THREE.SphereGeometry(PLANET_DATA.sun.radius, 128, 128); // 从64增加到128，提高细节
+    // 添加错误处理
+    let sunMaterial = fallbackMaterials.sun;
+    try {
+        const sunTexture = textureLoader.load(PLANET_DATA.sun.texture, 
+            // 成功回调
+            undefined, 
+            // 进度回调
+            undefined,
+            // 错误回调
+            (err) => {
+                console.warn('无法加载太阳纹理：', err);
+                console.log('使用备用材质');
+            }
+        );
+        
+        // 增加纹理的分辨率和重复度
+        sunTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        sunTexture.wrapS = THREE.RepeatWrapping;
+        sunTexture.wrapT = THREE.RepeatWrapping;
+        sunTexture.repeat.set(2, 2); // 增加纹理细节
+        
+        // 使用MeshBasicMaterial替换原来的MeshStandardMaterial
+        sunMaterial = new THREE.MeshBasicMaterial({
+            map: sunTexture,
+            color: 0xffddaa // 偏暖色调
+        });
+    } catch (error) {
+        console.warn('创建太阳材质时出错：', error);
+    }
+    sun = new THREE.Mesh(sunGeometry, sunMaterial);
+    
+    // 添加太阳标签
+    const sunLabel = createPlanetLabel(PLANET_DATA.sun.info.name);
+    sun.add(sunLabel);
+    sun.userData.label = sunLabel;
+    sun.userData.name = 'sun'; // 标记为太阳便于后续查找
+    
+    // 设置太阳脉动动画参数
+    sun.userData.baseScale = 1.0;
+    sun.userData.pulseSpeed = 0.5;
+    sun.userData.pulseAmount = 0.05;
+    sun.userData.pulseTime = 0;
+    sun.userData.pulseEnabled = PLANET_DATA.sun.pulseEnabled;
+    
+    // 添加太阳日冕效果（外部光晕）
+    try {
+        // 加载日冕贴图
+        const coronaTexture = textureLoader.load('sun-dynamic.jpg',
+            // 成功回调
+            () => {
+                // 创建大一些的球体作为日冕
+                const coronaGeometry = new THREE.SphereGeometry(
+                    PLANET_DATA.sun.radius * 1.2, // 比太阳大20%
+                    64, 64
+                );
+                
+                // 创建发光材质
+                const coronaMaterial = new THREE.MeshBasicMaterial({
+                    map: coronaTexture,
+                    transparent: true,
+                    opacity: 0.4,
+                    blending: THREE.AdditiveBlending,
+                    side: THREE.BackSide, // 只渲染内部
+                    depthWrite: false // 避免深度冲突
+                });
+                
+                // 创建日冕网格
+                const corona = new THREE.Mesh(coronaGeometry, coronaMaterial);
+                corona.name = 'sun_corona';
+                
+                // 添加到太阳
+                sun.add(corona);
+                
+                // 创建另一层更大的日冕外层，提供渐变效果
+                const outerCoronaGeometry = new THREE.SphereGeometry(
+                    PLANET_DATA.sun.radius * 1.5, // 比太阳大50%
+                    32, 32
+                );
+                
+                // 外层日冕使用相同贴图但更加透明
+                const outerCoronaMaterial = new THREE.MeshBasicMaterial({
+                    map: coronaTexture,
+                    transparent: true,
+                    opacity: 0.2,
+                    blending: THREE.AdditiveBlending,
+                    side: THREE.BackSide,
+                    depthWrite: false
+                });
+                
+                // 创建外层日冕网格
+                const outerCorona = new THREE.Mesh(outerCoronaGeometry, outerCoronaMaterial);
+                outerCorona.name = 'sun_outer_corona';
+                
+                // 添加到太阳
+                sun.add(outerCorona);
+                
+                console.log('太阳日冕效果创建成功');
+            },
+            // 进度回调
+            undefined,
+            // 错误回调
+            (err) => {
+                console.warn('无法加载太阳日冕纹理：', err);
+            }
+        );
+    } catch (error) {
+        console.warn('创建太阳日冕效果时出错：', error);
+    }
+    
+    // 添加太阳到场景
+    solarSystemGroup.add(sun);
+    
+    // 添加太阳光源 - 大幅增强强度和范围
+    const sunLight = new THREE.PointLight(0xffffff, 500, 800); // 显著提升强度和照射范围
+    sunLight.name = 'sunLight';
+    sun.add(sunLight);
+    
+    // 创建行星
+    for (const [planetName, planetInfo] of Object.entries(PLANET_DATA)) {
+        if (planetName === 'sun') continue; // 太阳已创建
+        
+        // 使用纹理创建行星（带错误处理）
+        let planetMaterial = fallbackMaterials[planetName];
+        try {
+            const planetTexture = textureLoader.load(planetInfo.texture,
+                undefined,
+                undefined,
+                (err) => {
+                    console.warn(`无法加载${planetName}纹理：`, err);
+                }
+            );
+            
+            // 增加纹理的分辨率和质量
+            planetTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+            planetTexture.wrapS = THREE.RepeatWrapping;
+            planetTexture.wrapT = THREE.RepeatWrapping;
+            
+            // 基础材质设置 - 增强细节表现
+            const materialOptions = {
+                map: planetTexture,
+                color: 0xffffff,
+                roughness: 0.5,
+                metalness: 0.2,
+                flatShading: false, // 确保平滑着色
+                precision: "highp" // 高精度渲染
+            };
+            
+            // 添加地球特殊效果（多层贴图）
+            if (planetName === 'earth' && planetInfo.bumpTexture) {
+                try {
+                    // 加载凹凸贴图
+                    const bumpTexture = textureLoader.load(planetInfo.bumpTexture);
+                    bumpTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                    materialOptions.bumpMap = bumpTexture;
+                    materialOptions.bumpScale = 0.08; // 增强凹凸效果从0.05增强到0.08
+                    
+                    // 加载高光贴图
+                    if (planetInfo.specularTexture) {
+                        const specularTexture = textureLoader.load(planetInfo.specularTexture);
+                        specularTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                        materialOptions.specularMap = specularTexture;
+                    }
+                    
+                    // 添加法线贴图，增强细节（如果资源中有）
+                    if (planetInfo.normalTexture) {
+                        const normalTexture = textureLoader.load(planetInfo.normalTexture);
+                        normalTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                        materialOptions.normalMap = normalTexture;
+                        materialOptions.normalScale = new THREE.Vector2(1, 1);
+                    }
+                } catch (err) {
+                    console.warn(`加载地球附加纹理时出错:`, err);
+                }
+            }
+            
+            // 添加火星特殊效果
+            if (planetName === 'mars' && planetInfo.bumpTexture) {
+                try {
+                    // 加载火星凹凸贴图
+                    const marsBumpTexture = textureLoader.load(planetInfo.bumpTexture);
+                    marsBumpTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                    materialOptions.bumpMap = marsBumpTexture;
+                    materialOptions.bumpScale = 0.1; // 增强火星表面的凹凸感
+                } catch (err) {
+                    console.warn(`加载火星凹凸贴图时出错:`, err);
+                }
+            }
+            
+            // 创建材质
+            planetMaterial = new THREE.MeshStandardMaterial(materialOptions);
+            
+            // 添加云层（如果有）
+            if (planetInfo.cloudTexture) {
+                try {
+                    createClouds(planetName, planetInfo);
+                } catch(err) {
+                    console.warn(`创建${planetName}云层时出错:`, err);
+                }
+            }
+            
+        } catch (error) {
+            console.warn(`创建${planetName}材质时出错：`, error);
+        }
+        
+        // 增加几何体细分度，提高模型精细度
+        let segmentCount = 64; // 默认分段数
+        
+        // 根据行星大小和重要性分配不同的分段数
+        if (planetName === 'earth') {
+            segmentCount = 128; // 地球使用更高精度
+        } else if (planetName === 'jupiter' || planetName === 'saturn') {
+            segmentCount = 96; // 大行星使用较高精度
+        } else if (planetName === 'mercury' || planetName === 'mars') {
+            segmentCount = 80; // 小行星使用中等精度
+        }
+        
+        const geometry = new THREE.SphereGeometry(planetInfo.radius, segmentCount, segmentCount);
+        const planet = new THREE.Mesh(geometry, planetMaterial);
+        
+        // 存储行星数据
+        planet.userData = { 
+            // 如果没有椭圆轨道参数，使用旧的distance参数
+            distance: planetInfo.distance,
+            semimajorAxis: planetInfo.semimajorAxis,
+            eccentricity: planetInfo.eccentricity,
+            inclination: planetInfo.inclination,
+            speed: planetInfo.speed,
+            angle: Math.random() * Math.PI * 2, // 随机初始位置
+            rotationSpeed: planetInfo.rotationSpeed
+        };
+        
+        // 添加行星标签
+        const planetLabel = createPlanetLabel(planetInfo.info.name);
+        planet.add(planetLabel);
+        planet.userData.label = planetLabel;
+        
+        // 将行星放置在其轨道上的初始位置
+        updatePlanetPosition(planet, planet.userData.angle);
+        
+        // 创建轨道线 - 使用新的椭圆轨道
+        if (planetInfo.semimajorAxis) {
+            const orbit = createOrbit(planetInfo);
+            solarSystemGroup.add(orbit);
+        } else {
+            // 旧的圆形轨道创建方式（兼容）
+            const orbitGeometry = new THREE.RingGeometry(
+                planetInfo.distance - 0.1, 
+                planetInfo.distance + 0.1, 
+                128
+            );
+            const orbitMaterial = new THREE.MeshBasicMaterial({
+                color: 0x444444,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.2
+            });
+            const orbit = new THREE.Mesh(orbitGeometry, orbitMaterial);
+            orbit.rotation.x = Math.PI / 2;
+            solarSystemGroup.add(orbit);
+        }
+        
+        // 添加月球（如果有）
+        if (planetInfo.moons) {
+            planetInfo.moons.forEach(moonInfo => {
+                // 带错误处理的月球纹理
+                let moonMaterial = fallbackMaterials.moon;
+                try {
+                    const moonTexture = textureLoader.load(moonInfo.texture,
+                        undefined,
+                        undefined,
+                        (err) => {
+                            console.warn('无法加载月球纹理：', err);
+                        }
+                    );
+                    
+                    // 增加月球纹理质量
+                    moonTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                    
+                    const moonMaterialOptions = {
+                        map: moonTexture,
+                        roughness: 0.5,
+                        metalness: 0.0
+                    };
+                    
+                    // 添加月球凹凸贴图（如果有）
+                    if (moonInfo.bumpTexture) {
+                        const moonBumpTexture = textureLoader.load(moonInfo.bumpTexture);
+                        moonBumpTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                        moonMaterialOptions.bumpMap = moonBumpTexture;
+                        moonMaterialOptions.bumpScale = 0.04; // 增强凹凸效果，从0.02增加到0.04
+                    }
+                    
+                    moonMaterial = new THREE.MeshStandardMaterial(moonMaterialOptions);
+                } catch (error) {
+                    console.warn('创建月球材质时出错：', error);
+                }
+                
+                // 增加月球几何体细分度
+                const moonGeometry = new THREE.SphereGeometry(moonInfo.radius, 64, 64); // 从32增加到64
+                const moon = new THREE.Mesh(moonGeometry, moonMaterial);
+                
+                // 存储月球数据
+                moon.userData = {
+                    distance: moonInfo.distance,
+                    semimajorAxis: moonInfo.semimajorAxis,
+                    eccentricity: moonInfo.eccentricity,
+                    inclination: moonInfo.inclination,
+                    speed: moonInfo.speed,
+                    angle: Math.random() * Math.PI * 2,
+                    isMoon: true,
+                    info: moonInfo.info
+                };
+                
+                // 添加月球标签
+                if (moonInfo.info) {
+                    const moonLabel = createPlanetLabel(moonInfo.info.name);
+                    moon.add(moonLabel);
+                    moon.userData.label = moonLabel;
+                }
+                
+                // 如果月球有椭圆轨道参数，则创建椭圆轨道
+                if (moonInfo.semimajorAxis) {
+                    const moonOrbit = createOrbit(moonInfo);
+                    planet.add(moonOrbit);
+                }
+                
+                planet.add(moon);
+            });
+        }
+        
+        // 添加行星环（如果有）
+        if (planetInfo.rings) {
+            const innerRadius = planetInfo.rings.innerRadius;
+            const outerRadius = planetInfo.rings.outerRadius;
+            const ringsGeometry = new THREE.RingGeometry(
+                innerRadius, 
+                outerRadius, 
+                256 // 增加段数从128到256以获得更平滑的UV映射
+            );
+
+            // --- 手动修改 UV 坐标以实现径向平铺 ---
+            const uvAttribute = ringsGeometry.attributes.uv;
+            const positionAttribute = ringsGeometry.attributes.position;
+            const vertexCount = positionAttribute.count;
+
+            for (let i = 0; i < vertexCount; i++) {
+                const x = positionAttribute.getX(i);
+                const y = positionAttribute.getY(i); // RingGeometry 初始在 XY 平面
+                const radius = Math.sqrt(x * x + y * y); // 计算顶点到中心的距离（半径）
+
+                // 将半径归一化到 [0, 1] 范围
+                const radialPos = (radius - innerRadius) / (outerRadius - innerRadius);
+                
+                // U 坐标：内径 (radialPos=0) 对应 U=1 (右边)，外径 (radialPos=1) 对应 U=0 (左边)
+                const u = 1.0 - radialPos;
+                // V 坐标：设为常量 0.5
+                const v = 0.5; 
+
+                uvAttribute.setXY(i, u, v);
+            }
+            uvAttribute.needsUpdate = true; // 通知 Three.js UV 已更新
+            // --- UV 修改结束 ---
+            
+            // 带错误处理的环纹理
+            let ringsMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0xffffff, // 基础颜色设为白色，主要靠纹理和光照
+                side: THREE.DoubleSide,
+                transparent: true,
+                depthWrite: false, // 禁用深度写入，改善透明渲染
+            });
+            
+            try {
+                const ringsTexture = textureLoader.load(planetInfo.rings.texture,
+                    undefined,
+                    undefined,
+                    (err) => {
+                        console.warn('无法加载环纹理：', err);
+                    }
+                );
+                
+                // 增强环纹理质量
+                ringsTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                
+                // 将纹理应用到 Standard Material，调整透明度处理
+                ringsMaterial = new THREE.MeshStandardMaterial({
+                    map: ringsTexture,
+                    side: THREE.DoubleSide,
+                    transparent: true, // 使用纹理的 Alpha 通道
+                    depthWrite: false, // 禁用深度写入，改善透明渲染
+                });
+            } catch (error) {
+                console.warn('创建环材质时出错：', error);
+            }
+            
+            const rings = new THREE.Mesh(ringsGeometry, ringsMaterial);
+            
+            // 恢复土星环的旋转到水平位置
+            rings.rotation.x = Math.PI / 2;
+            
+            planet.add(rings);
+        }
+        
+        planets[planetName] = planet;
+        solarSystemGroup.add(planet);
+    }
+
+    // 添加额外的全局光照 - 大幅降低强度
+    const hemisphereLight = new THREE.HemisphereLight(0xffffbb, 0x080820, 0.6); // 从 1 降低到 0.8
+    scene.add(hemisphereLight);
+}
+
+// 创建云层
+function createClouds(planetName, planetInfo) {
+    if (!planetInfo.cloudTexture) return;
+    
+    // 加载云层纹理
+    const cloudTexture = textureLoader.load(planetInfo.cloudTexture);
+    cloudTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    
+    // 创建云层材质 - 增强云层效果
+    const cloudMaterial = new THREE.MeshPhongMaterial({
+        map: cloudTexture,
+        transparent: true,
+        opacity: 0.8, // 从0.9降低到0.8，使云层略微更透明
+        side: THREE.FrontSide,
+        depthWrite: false // 避免深度冲突
+    });
+    
+    // 为地球添加额外的大气层效果
+    if (planetName === 'earth') {
+        try {
+            // 创建地球大气层效果
+            // 大气层比地球略大一点
+            const atmosphereGeometry = new THREE.SphereGeometry(
+                planetInfo.radius * 1.03, // 比地球大3%
+                64, 64
+            );
+            
+            // 创建大气层材质 - 蓝色发光效果
+            const atmosphereMaterial = new THREE.MeshPhongMaterial({
+                color: 0x6688ff,
+                transparent: true,
+                opacity: 0.15,
+                side: THREE.BackSide, // 只从内部渲染
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            
+            // 创建大气层网格
+            const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+            atmosphere.name = 'earth_atmosphere';
+            
+            // 添加大气层到地球
+            planets[planetName].add(atmosphere);
+            
+            // 创建外部大气层辉光效果
+            const glowGeometry = new THREE.SphereGeometry(
+                planetInfo.radius * 1.08, // 比地球大8%
+                32, 32
+            );
+            
+            // 创建辉光材质 - 更淡的蓝色
+            const glowMaterial = new THREE.MeshPhongMaterial({
+                color: 0x8899ff,
+                transparent: true,
+                opacity: 0.1,
+                side: THREE.BackSide,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            
+            // 创建辉光网格
+            const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+            glow.name = 'earth_glow';
+            
+            // 添加辉光到地球
+            planets[planetName].add(glow);
+            
+            console.log('地球大气层效果创建成功');
+        } catch (error) {
+            console.warn('创建地球大气层效果时出错：', error);
+        }
+    }
+    
+    // 创建云层几何体 - 略大于行星本身
+    const cloudGeometry = new THREE.SphereGeometry(
+        planetInfo.radius * 1.01, // 原1.02改为1.01，云层更贴近地表
+        64, 64
+    );
+    
+    // 创建云层网格
+    const clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
+    clouds.name = planetName + '_clouds';
+    
+    // 添加到相应行星
+    planets[planetName].add(clouds);
+    
+    // 存储云层对象以便动画
+    planets[planetName].userData.clouds = clouds;
+}
+
+// 更新行星位置 - 使用开普勒轨道方程
+function updatePlanetPosition(planet, angle) {
+    if (!planet.userData.semimajorAxis) {
+        // 旧方法，圆形轨道
+        const distance = planet.userData.distance;
+        planet.position.x = Math.cos(angle) * distance;
+        planet.position.z = Math.sin(angle) * distance;
+        return;
+    }
+    
+    // 使用开普勒轨道方程计算椭圆轨道位置
+    const a = planet.userData.semimajorAxis;  // 半长轴
+    const e = planet.userData.eccentricity;   // 偏心率
+    const inclination = planet.userData.inclination * Math.PI / 180; // 轨道倾角(转换为弧度)
+    
+    // 计算焦距到行星的距离
+    const r = a * (1 - e * e) / (1 + e * Math.cos(angle));
+    
+    // 计算行星在轨道平面上的位置
+    const x = r * Math.cos(angle);
+    const z = r * Math.sin(angle);
+    
+    // 考虑轨道倾角
+    const xInclined = x;
+    const yInclined = Math.sin(inclination) * z;
+    const zInclined = Math.cos(inclination) * z;
+    
+    // 设置行星位置
+    planet.position.set(xInclined, yInclined, zInclined);
+}
+
+// 创建椭圆轨道线
+function createOrbit(planetInfo) {
+    const a = planetInfo.semimajorAxis; // 半长轴
+    const e = planetInfo.eccentricity;  // 偏心率
+    const b = a * Math.sqrt(1 - e * e); // 半短轴
+    const c = a * e;                   // 焦距
+    
+    // 创建更精细的椭圆路径点
+    const points = [];
+    const segments = 128;
+    
+    for (let i = 0; i <= segments; i++) {
+        const theta = (i / segments) * Math.PI * 2;
+        const r = a * (1 - e * e) / (1 + e * Math.cos(theta));
+        const x = r * Math.cos(theta);
+        const z = r * Math.sin(theta);
+        
+        // 考虑轨道倾角
+        const inclination = planetInfo.inclination * Math.PI / 180;
+        const xInclined = x;
+        const yInclined = Math.sin(inclination) * z;
+        const zInclined = Math.cos(inclination) * z;
+        
+        points.push(new THREE.Vector3(xInclined, yInclined, zInclined));
+    }
+    
+    // 创建轨道曲线
+    const orbitGeometry = new THREE.BufferGeometry().setFromPoints(points);
+    const orbitMaterial = new THREE.LineBasicMaterial({ 
+        color: 0xffffff,  // 使用白色而不是蓝色
+        transparent: true,
+        opacity: 0.2  // 设置轻微透明度
+    });
+    
+    const orbit = new THREE.Line(orbitGeometry, orbitMaterial);
+    orbit.userData = { isOrbit: true }; // 标记为轨道线，便于后续查找
+    
+    return orbit;
+}
+
+// 动画循环
+function animate() {
+    requestAnimationFrame(animate);
+    
+    // 更新轨道控制
+    controls.update();
+    
+    // 更新标签渲染器
+    labelRenderer.render(scene, camera);
+    
+    // 更新动画相机位置
+    if (isAnimatingCamera) {
+        const now = Date.now();
+        const elapsed = now - cameraAnimationStartTime;
+        const progress = Math.min(elapsed / cameraAnimationDuration, 1.0);
+        const eased = easeInOutCubic(progress);
+        
+        if (progress < 1.0) {
+            // 插值计算当前相机位置
+            camera.position.lerpVectors(cameraStartPosition, cameraTargetPosition, eased);
+            controls.target.lerpVectors(controlsStartTarget, controlsTargetPosition, eased);
+        } else {
+            // 动画结束
+            camera.position.copy(cameraTargetPosition);
+            controls.target.copy(controlsTargetPosition);
+            isAnimatingCamera = false;
+        }
+    }
+    
+    // 更新行星位置
+    if (!isPaused) {
+        // 旋转太阳
+        sun.rotation.y += PLANET_DATA.sun.rotationSpeed * speedFactor;
+        
+        // 太阳脉动动画
+        if (sun.userData.pulseEnabled) {
+            sun.userData.pulseTime += 0.01;
+            const pulseFactor = 1.0 + Math.sin(sun.userData.pulseTime * sun.userData.pulseSpeed) * sun.userData.pulseAmount;
+            sun.scale.set(pulseFactor, pulseFactor, pulseFactor);
+        }
+        
+        // 更新行星位置
+        for (const [planetName, planet] of Object.entries(planets)) {
+            // 更新行星角度
+            planet.userData.angle += planet.userData.speed * speedFactor;
+            
+            // 更新行星位置
+            updatePlanetPosition(planet, planet.userData.angle);
+            
+            // 行星自转 - 使用每个行星的特定自转速度
+            planet.rotation.y += planet.userData.rotationSpeed * speedFactor;
+            
+            // 更新云层（如果有）
+            if (planet.userData.clouds) {
+                planet.userData.clouds.rotation.y += planet.userData.rotationSpeed * 0.7 * speedFactor; // 云层旋转速度略慢于行星
+            }
+            
+            // 添加月球位置更新逻辑
+            planet.children.forEach(child => {
+                if (child.userData && child.userData.isMoon) {
+                    // 更新月球角度
+                    child.userData.angle += child.userData.speed * speedFactor;
+                    
+                    // 计算月球围绕行星的轨道位置
+                    if (child.userData.semimajorAxis) {
+                        // 使用开普勒轨道参数
+                        const a = child.userData.semimajorAxis;  // 半长轴
+                        const e = child.userData.eccentricity;   // 偏心率
+                        const inclination = child.userData.inclination * Math.PI / 180; // 轨道倾角(弧度)
+                        
+                        // 计算月球轨道距离
+                        const r = a * (1 - e * e) / (1 + e * Math.cos(child.userData.angle));
+                        
+                        // 计算月球在轨道平面上的位置
+                        const x = r * Math.cos(child.userData.angle);
+                        const z = r * Math.sin(child.userData.angle);
+                        
+                        // 考虑轨道倾角
+                        const xInclined = x;
+                        const yInclined = Math.sin(inclination) * z;
+                        const zInclined = Math.cos(inclination) * z;
+                        
+                        child.position.set(xInclined, yInclined, zInclined);
+                    } else if (child.userData.distance) {
+                        // 使用简单圆形轨道
+                        const distance = child.userData.distance;
+                        child.position.x = Math.cos(child.userData.angle) * distance;
+                        child.position.z = Math.sin(child.userData.angle) * distance;
+                        child.position.y = 0;
+                    }
+                    
+                    // 月球自转
+                    if (child.userData.rotationSpeed) {
+                        child.rotation.y += child.userData.rotationSpeed * speedFactor;
+                    }
+                }
+            });
+        }
+    }
+    
+    // 更新星云动画
+    if (scene.userData.nebulaMaterials) {
+        scene.userData.nebulaMaterials.forEach(nebula => {
+            nebula.time += 0.01;
+            
+            // 脉动效果 - 增加脉动强度
+            const pulseFactor = 1.0 + Math.sin(nebula.time * nebula.pulseSpeed) * nebula.pulseAmount * 1.5;
+            nebula.sprite.scale.x = nebula.baseScale * pulseFactor;
+            nebula.sprite.scale.y = nebula.baseScale * pulseFactor;
+            
+            // 动态调整透明度，增加闪烁效果
+            const opacityFactor = 0.8 + Math.sin(nebula.time * nebula.pulseSpeed * 1.2) * 0.2;
+            nebula.sprite.material.opacity = Math.max(0.7, opacityFactor);
+            
+            // 缓慢旋转效果
+            nebula.sprite.material.rotation += nebula.rotationSpeed;
+        });
+    }
+    
+    // 更新星系发光效果
+    if (scene.userData.galaxyGlow) {
+        const galaxyGlow = scene.userData.galaxyGlow;
+        
+        // 颜色循环
+        galaxyGlow.colorCycle += galaxyGlow.cycleSpeed;
+        
+        // 更新每个发光层
+        galaxyGlow.layers.forEach(layer => {
+            // 计算颜色变化 - 调整公式使颜色变化更柔和且保持偏白
+            const r = layer.baseColor.r + layer.colorShift * Math.sin(galaxyGlow.colorCycle);
+            const g = layer.baseColor.g + layer.colorShift * Math.sin(galaxyGlow.colorCycle + 1.5);
+            const b = layer.baseColor.b + layer.colorShift * Math.sin(galaxyGlow.colorCycle * 0.5);
+            
+            // 更新材质颜色
+            layer.material.uniforms.glowColor.value.setRGB(r, g, b);
+            
+            // 更新视角向量
+            layer.material.uniforms.viewVector.value.copy(camera.position);
+        });
+    }
+    
+    // 渲染场景
+    renderer.render(scene, camera);
+}
+
+// 窗口大小调整响应
+function onWindowResize() {
+    // 计算可用空间 - 只使用页面左侧70%的宽度
+    const availableWidth = window.innerWidth * 0.7; // 页面左侧70%的宽度
+    
+    camera.aspect = availableWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    
+    // 设置渲染器大小为整个容器大小
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    
+    // 调整渲染器的视口，只使用左侧部分
+    renderer.setViewport(0, 0, availableWidth, window.innerHeight);
+    
+    // 更新标签渲染器大小
+    if (labelRenderer) {
+        labelRenderer.setSize(availableWidth, window.innerHeight);
+        labelRenderer.domElement.style.width = availableWidth + 'px';
+    }
+}
+
+// 暂停/继续模拟
+function togglePause() {
+    isPaused = !isPaused;
+}
+
+// 更新模拟速度
+function updateSpeed(event) {
+    speedFactor = parseFloat(event.target.value);
+    document.getElementById('speed-value').textContent = speedFactor.toFixed(1) + 'x';
+}
+
+// 太阳脉动控制功能已移除，但保留脉动逻辑
+
+// 创建CSS样式的行星标签
+function createPlanetLabel(name) {
+    const labelDiv = document.createElement('div');
+    labelDiv.className = 'planet-label';
+    labelDiv.textContent = name;
+    labelDiv.style.display = 'none'; // 初始隐藏
+    
+    const label = new CSS2DObject(labelDiv);
+    label.position.set(0, 1.5, 0); // 位置在行星上方
+    return label;
+}
+
+// 添加鼠标交互事件
+function addMouseInteraction() {
+    // 创建鼠标移动事件监听
+    renderer.domElement.addEventListener('mousemove', onMouseMove);
+    renderer.domElement.addEventListener('click', onMouseClick);
+    
+    // 初始化标签渲染器
+    // 计算可用空间 - 只使用页面左侧70%的宽度
+    const availableWidth = window.innerWidth * 0.7;
+    
+    labelRenderer = new CSS2DRenderer();
+    labelRenderer.setSize(availableWidth, window.innerHeight);
+    labelRenderer.domElement.style.position = 'absolute';
+    labelRenderer.domElement.style.top = '0';
+    labelRenderer.domElement.style.left = '0';
+    labelRenderer.domElement.style.width = availableWidth + 'px';
+    labelRenderer.domElement.style.pointerEvents = 'none';
+    document.getElementById('container').appendChild(labelRenderer.domElement);
+}
+
+// 鼠标移动事件处理
+function onMouseMove(event) {
+    // 在AR模式下禁用鼠标悬停显示标签功能
+    if (isARMode) {
+        return;
+    }
+    
+    // 计算可用空间 - 只使用页面左侧70%的宽度
+    const availableWidth = window.innerWidth * 0.7;
+    
+    // 将鼠标位置转换为标准化设备坐标 - 调整计算方式，只考虑左侧70%区域
+    mouse.x = (event.clientX / availableWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    
+    // 更新光线投射器
+    raycaster.setFromCamera(mouse, camera);
+    
+    // 获取所有可交互对象（行星和月球）
+    const interactableObjects = getInteractableObjects();
+    
+    // 检测与物体的交叉
+    const intersects = raycaster.intersectObjects(interactableObjects);
+    
+    if (intersects.length > 0) {
+        const object = intersects[0].object;
+        if (hoveredObject !== object) {
+            // 如果悬停对象改变
+            if (hoveredObject) {
+                // 隐藏先前对象的标签
+                hideLabel(hoveredObject);
+            }
+            
+            // 显示当前对象的标签
+            showLabel(object);
+            hoveredObject = object;
+            document.body.style.cursor = 'pointer';
+        }
+    } else {
+        // 如果没有交叉，隐藏所有标签
+        if (hoveredObject) {
+            hideLabel(hoveredObject);
+            hoveredObject = null;
+            document.body.style.cursor = 'auto';
+        }
+    }
+}
+
+// 显示标签
+function showLabel(object) {
+    // 在AR模式下不显示任何标签
+    if (isARMode) {
+        return; 
+    }
+
+    const label = object.userData.label;
+    if (label) {
+        label.element.style.display = 'block'; // 显示标签
+        
+        // 额外检查：如果我们处于AR模式，即使前面的检查通过了，也强制隐藏标签
+        if (isARMode) {
+            label.element.style.display = 'none';
+        }
+    }
+}
+
+// 隐藏标签
+function hideLabel(object) {
+    const label = object.userData.label;
+    if (label) {
+        label.element.style.display = 'none';
+    }
+}
+
+// 获取所有可交互对象
+function getInteractableObjects() {
+    const objects = [sun];
+    
+    // 添加所有行星
+    for (const planetName in planets) {
+        const planet = planets[planetName];
+        objects.push(planet);
+        
+        // 添加行星的月球
+        planet.children.forEach(child => {
+            if (child.userData && child.userData.isMoon) {
+                objects.push(child);
+            }
+        });
+    }
+    
+    return objects;
+}
+
+// 鼠标点击事件处理
+function onMouseClick(event) {
+    // 计算可用空间 - 只使用页面左侧70%的宽度
+    const availableWidth = window.innerWidth * 0.7;
+    
+    // 将鼠标位置转换为标准化设备坐标 - 调整计算方式，只考虑左侧70%区域
+    mouse.x = (event.clientX / availableWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    
+    // 更新光线投射器
+    raycaster.setFromCamera(mouse, camera);
+    
+    // 获取所有可交互对象
+    const interactableObjects = getInteractableObjects();
+    
+    // 检测与物体的交叉
+    const intersects = raycaster.intersectObjects(interactableObjects);
+    
+    if (intersects.length > 0) {
+        const object = intersects[0].object;
+        
+        // 根据对象显示相应的信息面板
+        if (object === sun) {
+            // 显示太阳信息面板
+            selectPlanet('sun');
+        } else if (object.userData.isMoon) {
+            // 显示月球信息面板
+            showMoonInfo(object);
+        } else {
+            // 查找点击的是哪个行星
+            for (const planetName in planets) {
+                if (planets[planetName] === object) {
+                    selectPlanet(planetName);
+                    break;
+                }
+            }
+        }
+    }
+}
+
+// 显示月球信息
+function showMoonInfo(moon) {
+    // 根据月球的信息显示面板
+    if (moon.userData && moon.userData.info) {
+        const info = moon.userData.info;
+        
+        // 显示行星信息面板
+        const planetInfo = document.getElementById('planet-info');
+        planetInfo.classList.remove('hidden');
+        
+        // 更新行星信息
+        document.getElementById('planet-name').textContent = info.name;
+        document.getElementById('planet-diameter').textContent = info.diameter;
+        document.getElementById('planet-distance').textContent = info.distance;
+        document.getElementById('planet-orbit-period').textContent = info.orbitPeriod;
+        document.getElementById('planet-rotation-period').textContent = info.rotationPeriod;
+        document.getElementById('planet-moons-count').textContent = '0'; // 月球没有卫星
+        document.getElementById('planet-temperature').textContent = info.temperature;
+        document.getElementById('planet-description').textContent = info.description;
+        
+        // 聚焦相机到月球
+        focusOnPlanet(moon);
+    }
+}
+
+// 添加缓动函数
+function easeInOutCubic(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+// 新增：创建AR模式使用指南
+function createARGuide() {
+    const arGuide = document.createElement('div');
+    arGuide.id = 'ar-guide';
+    arGuide.innerHTML = `
+        <div class="ar-guide-content">
+            <h3>AR模式使用指南</h3>
+            <ul>
+                <li><strong>右手移动:</strong> 上下左右移动控制太阳系旋转</li>
+                <li><strong>左手移动:</strong> 左右移动控制太阳系大小</li>
+                <li><strong>自动暂停:</strong> 识别到手指时自动暂停行星动画</li>
+                <li><strong>模式切换:</strong> 双手合在一起保持2秒后切换地球/太阳系</li>
+            </ul>
+            <button id="ar-guide-close">知道了</button>
+        </div>
+    `;
+    
+    // 设置样式
+    arGuide.style.position = 'fixed';
+    arGuide.style.bottom = '20px';
+    arGuide.style.right = '20px';
+    arGuide.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    arGuide.style.color = 'white';
+    arGuide.style.padding = '15px';
+    arGuide.style.borderRadius = '5px';
+    arGuide.style.zIndex = '100';
+    arGuide.style.maxWidth = '250px';
+    
+    document.body.appendChild(arGuide);
+    
+    // 添加关闭按钮事件
+    document.getElementById('ar-guide-close').addEventListener('click', () => {
+        arGuide.style.display = 'none';
+    });
+}
+
+// 新增：移除AR使用指南
+function removeARGuide() {
+    const arGuide = document.getElementById('ar-guide');
+    if (arGuide) {
+        document.body.removeChild(arGuide);
+    }
+}
+
+// 新增：启动AR模式的函数
+function startAR() {
+    // 1. 创建并配置video元素
+    videoElement = document.createElement('video');
+    videoElement.id = 'ar-video-background'; 
+    videoElement.setAttribute('playsinline', ''); 
+    videoElement.setAttribute('autoplay', '');
+    videoElement.setAttribute('muted', ''); 
+    videoElement.style.position = 'fixed';
+    videoElement.style.top = '0';
+    videoElement.style.left = '0';
+    videoElement.style.width = '100%';
+    videoElement.style.height = '100%';
+    videoElement.style.objectFit = 'cover'; 
+    videoElement.style.zIndex = '-1'; 
+    videoElement.style.transform = 'scaleX(-1)'; // 新增：反向视频源
+    document.body.appendChild(videoElement);
+
+    // (可选) 创建用于调试绘制的canvas - 注释掉这部分代码以移除左上角视频窗口
+    /*
+    canvasElement = document.createElement('canvas');
+    canvasElement.style.position = 'absolute';
+    canvasElement.style.left = '0px';
+    canvasElement.style.top = '0px';
+    canvasElement.style.zIndex = '100'; // 确保在Three.js canvas之上以便调试
+    // document.body.appendChild(canvasElement);
+    // canvasCtx = canvasElement.getContext('2d');
+    */
+
+    // 2. 初始化Hands
+    hands = new Hands({
+        locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4/${file}`;
+        }
+    });
+
+    // 3. 配置Hands
+    hands.setOptions({
+        maxNumHands: 2,
+        modelComplexity: 1, // 0 for lite, 1 for full
+        minDetectionConfidence: 0.7,
+        minTrackingConfidence: 0.7
+    });
+
+    // 4. 设置onResults回调
+    hands.onResults(onHandResults);
+
+    // 5. 初始化并启动摄像头
+    arCamera = new Camera(videoElement, {
+        onFrame: async () => {
+            await hands.send({ image: videoElement });
+        },
+        width: 640, // 可以根据需要调整
+        height: 480 // 可以根据需要调整
+    });
+    arCamera.start();
+
+    // 设置Three.js canvas透明
+    renderer.domElement.style.background = 'transparent';
+    renderer.setClearColor(0x000000, 0); 
+
+    // 重置AR控制目标值
+    targetSolarSystemPosition.set(0, AR_CENTER_Y_OFFSET, -15);
+    currentSolarSystemPosition.copy(targetSolarSystemPosition);
+    targetSolarSystemRotation.set(0,0,0);
+    currentSolarSystemRotation.copy(targetSolarSystemRotation);
+    
+    // 设置初始隐藏状态的极小缩放
+    targetSolarSystemScale.set(
+        arInitialState.initialScale, 
+        arInitialState.initialScale, 
+        arInitialState.initialScale
+    );
+    currentSolarSystemScale.copy(targetSolarSystemScale);
+    
+    // 重置AR初始状态
+    arInitialState.isSolarSystemVisible = false;
+    arInitialState.systemScaleAnimationStarted = false;
+    arInitialState.systemScaleAnimationStartTime = 0;
+    
+    targetCameraOffset.set(0, 0, 0); // 重置相机偏移
+    currentCameraOffset.copy(targetCameraOffset);
+    lastRightHandPosition = null;
+    lastLeftHandPosition = null; // 重置左手位置
+    
+    // 重置模式切换相关变量
+    isShowingSolarSystem = true;
+    handsMergedStartTime = 0;
+    isHandsMerged = false;
+    isModeTransitioning = false;
+    if (handsMergeTimeout) {
+        clearTimeout(handsMergeTimeout);
+        handsMergeTimeout = null;
+    }
+    
+    // 重置手势暂停状态
+    wasAnimationPaused = false;
+    if (handDetectionTimeout) {
+        clearTimeout(handDetectionTimeout);
+        handDetectionTimeout = null;
+    }
+    
+    // 确保所有行星都可见
+    showAllPlanets();
+    
+    // 调整太阳系模型以适应AR模式
+    solarSystemGroup.scale.copy(currentSolarSystemScale);
+    solarSystemGroup.position.copy(currentSolarSystemPosition);
+    solarSystemGroup.rotation.copy(currentSolarSystemRotation);
+    
+    // 隐藏UI
+    document.getElementById('planet-selection').style.display = 'none';
+
+    // 优化：为轨道添加透明度动画
+    // 在AR模式下降低轨道线透明度以提高可读性
+    const orbits = [];
+    scene.traverse((object) => {
+        if (object.userData && object.userData.isOrbit) {
+            orbits.push(object);
+        }
+    });
+    
+    // 轨道线透明度动画
+    if (orbits.length > 0) {
+        const targetOpacity = 0.05; // AR模式下轨道目标透明度，从0.3减小到0.05
+        orbits.forEach(orbit => {
+            if (orbit.material) {
+                // 保存原始透明度
+                if (!orbit.userData) orbit.userData = {};
+                orbit.userData.originalOpacity = orbit.material.opacity;
+                
+                // 启用透明并进行渐变
+                orbit.material.transparent = true;
+                
+                // 透明度动画
+                let currentOpacity = orbit.material.opacity;
+                const fadeStep = (targetOpacity - currentOpacity) / 30; // 30帧完成渐变
+                
+                function fadeOrbit() {
+                    if (Math.abs(currentOpacity - targetOpacity) > 0.01) {
+                        currentOpacity += fadeStep;
+                        orbit.material.opacity = currentOpacity;
+                        requestAnimationFrame(fadeOrbit);
+                    } else {
+                        orbit.material.opacity = targetOpacity;
+                    }
+                }
+                
+                requestAnimationFrame(fadeOrbit);
+            }
+        });
+    }
+    
+    // 优化AR模式下的光照效果
+    scene.traverse((object) => {
+        if (object.type === 'AmbientLight') {
+            // 保存原始光照强度
+            if (!object.userData) object.userData = {};
+            object.userData.originalIntensity = object.intensity;
+            
+            // 在AR模式下增强环境光
+            object.intensity = object.intensity * 1.5;
+        }
+        else if (object.type === 'PointLight' && object.name === 'sunLight') {
+            // 为太阳光保存原始强度
+            if (!object.userData) object.userData = {};
+            object.userData.originalIntensity = object.intensity;
+            object.userData.originalDistance = object.distance;
+            
+            // 在AR模式下增强太阳光
+            object.intensity = object.intensity * 1.3;
+            object.distance = object.distance * 1.2;
+        }
+    });
+    
+    // 为太阳系天体添加视觉增强
+    if (sun && sun.material) {
+        if (!sun.userData) sun.userData = {};
+        if (!sun.material.userData) sun.material.userData = {};
+        
+        // 保存原始发光属性
+        sun.material.userData.originalEmissiveIntensity = sun.material.emissiveIntensity;
+        
+        // 增强太阳发光效果
+        sun.material.emissiveIntensity = 0.9; // 从1.5降低到0.9
+    }
+
+    // 隐藏星球标签
+    if (sun && sun.userData.label && sun.userData.label.element) {
+        sun.userData.label.element.style.display = 'none';
+    }
+    for (const planetName in planets) {
+        const planet = planets[planetName];
+        if (planet && planet.userData.label && planet.userData.label.element) {
+            planet.userData.label.element.style.display = 'none';
+        }
+        
+        // 隐藏月球标签
+        planet.children.forEach(child => {
+            if (child.userData && child.userData.isMoon && 
+                child.userData.label && child.userData.label.element) {
+                child.userData.label.element.style.display = 'none';
+            }
+        });
+    }
+    if (hoveredObject && hoveredObject.userData.label && hoveredObject.userData.label.element) {
+        hoveredObject.userData.label.element.style.display = 'none';
+    }
+    
+    // 隐藏星空背景
+    if (starField) {
+        starField.visible = false;
+    }
+    
+    // 确保星云在AR模式下可见
+    if (scene.userData.nebulaMaterials) {
+        scene.userData.nebulaMaterials.forEach(nebula => {
+            nebula.sprite.visible = true;
+            // 在AR模式下增大星云尺寸和不透明度
+            if (!nebula.originalScale) {
+                nebula.originalScale = nebula.baseScale;
+                nebula.baseScale *= 1.5; // 增大基础尺寸
+                nebula.sprite.scale.set(nebula.baseScale, nebula.baseScale, 1);
+            }
+            nebula.sprite.material.opacity = 1.0; // 最大不透明度
+            // 星云集中在相机前方
+            const distance = 30 + Math.random() * 100;
+            const phi = Math.random() * Math.PI - Math.PI/2; // 集中在前方区域
+            const theta = Math.random() * Math.PI - Math.PI/2;
+            nebula.sprite.position.x = distance * Math.sin(theta) * Math.cos(phi);
+            nebula.sprite.position.y = distance * Math.sin(theta) * Math.sin(phi);
+            nebula.sprite.position.z = -Math.abs(distance * Math.cos(theta)); // 确保在前方
+        });
+    }
+
+    // AR模式下翻倍所有星球尺寸
+    if (sun) {
+        // 保存原始尺寸
+        if (!sun.userData.originalScale) {
+            sun.userData.originalScale = sun.scale.clone();
+        }
+        // 太阳尺寸翻倍
+        sun.scale.set(2.0, 2.0, 2.0);
+    }
+    
+    // 所有行星尺寸翻倍
+    for (const planetName in planets) {
+        const planet = planets[planetName];
+        if (planet) {
+            // 保存原始尺寸
+            if (!planet.userData.originalScale) {
+                planet.userData.originalScale = planet.scale.clone();
+            }
+            // 行星尺寸翻倍
+            planet.scale.set(2.0, 2.0, 2.0);
+            
+            // 处理行星的月球
+            planet.children.forEach(child => {
+                if (child.userData && child.userData.isMoon) {
+                    // 保存月球原始尺寸
+                    if (!child.userData.originalScale) {
+                        child.userData.originalScale = child.scale.clone();
+                    }
+                    // 月球尺寸翻倍
+                    child.scale.set(2.0, 2.0, 2.0);
+                }
+            });
+        }
+    }
+
+    // 新增：AR模式下的性能优化
+    applyARPerformanceOptimizations(true);
+    
+    // 确保所有行星都可见
+    showAllPlanets();
+    
+    // 显示手部识别骨架线 - 注释掉以移除左上角视频窗口
+    /*
+    if (canvasElement) {
+        document.body.appendChild(canvasElement);
+        canvasCtx = canvasElement.getContext('2d');
+    }
+    */
+
+    // 星系发光效果在AR模式下特殊处理
+    if (scene.userData.galaxyGlow) {
+        scene.userData.galaxyGlow.layers.forEach(layer => {
+            // 确保发光效果在AR模式下可见
+            layer.mesh.visible = true;
+            
+            // 位置调整
+            layer.mesh.position.copy(solarSystemGroup.position);
+            
+            // 缩小尺寸以适应AR视觉
+            if (!layer.originalScale) {
+                layer.originalScale = layer.mesh.scale.clone();
+                layer.mesh.scale.multiplyScalar(0.7);
+            }
+            
+            // 增强透明度
+            layer.material.opacity = 0.7;
+        });
+    }
+
+    // 添加创建AR太阳系椭球光晕（在创建video元素等之后）
+    createARSolarGlow();
+}
+
+// 新增：停止AR模式的函数
+function stopAR() {
+    // 停止AR相关组件
+    if (arCamera) {
+        arCamera.stop();
+        arCamera = null; 
+    }
+    if (hands) {
+        hands.close(); 
+        hands = null;
+    }
+    if (videoElement && videoElement.parentNode) {
+        videoElement.style.transform = '';
+        videoElement.parentNode.removeChild(videoElement);
+        videoElement = null;
+    }
+    if (canvasElement && canvasElement.parentNode) {
+        canvasElement.parentNode.removeChild(canvasElement);
+        canvasElement = null;
+    }
+
+    // 恢复太阳系模型原始状态
+    solarSystemGroup.scale.set(1, 1, 1);
+    solarSystemGroup.position.set(0, 0, 0);
+    solarSystemGroup.rotation.set(0, 0, 0);
+
+    // 恢复UI
+    document.getElementById('planet-selection').style.display = 'block'; 
+    renderer.domElement.style.background = ''; 
+    renderer.setClearColor(0x000000, 1);
+
+    // 恢复轨道透明度
+    scene.traverse((object) => {
+        if (object.userData && object.userData.isOrbit && object.userData.originalOpacity !== undefined) {
+            if (object.material) {
+                // 轨道透明度恢复动画
+                const targetOpacity = object.userData.originalOpacity;
+                let currentOpacity = object.material.opacity;
+                const fadeStep = (targetOpacity - currentOpacity) / 30;
+                
+                function fadeOrbit() {
+                    if (Math.abs(currentOpacity - targetOpacity) > 0.01) {
+                        currentOpacity += fadeStep;
+                        object.material.opacity = currentOpacity;
+                        requestAnimationFrame(fadeOrbit);
+                    } else {
+                        object.material.opacity = targetOpacity;
+                    }
+                }
+                
+                requestAnimationFrame(fadeOrbit);
+            }
+        }
+    });
+    
+    // 恢复光照效果
+    scene.traverse((object) => {
+        if ((object.type === 'AmbientLight' || object.type === 'PointLight') && 
+            object.userData && object.userData.originalIntensity !== undefined) {
+            // 恢复原始光照强度
+            object.intensity = object.userData.originalIntensity;
+            
+            // 如果是太阳光，还要恢复原始距离
+            if (object.type === 'PointLight' && object.name === 'sunLight' && 
+                object.userData.originalDistance !== undefined) {
+                object.distance = object.userData.originalDistance;
+            }
+        }
+    });
+    
+    // 恢复太阳发光效果
+    if (sun && sun.material && sun.material.userData && 
+        sun.material.userData.originalEmissiveIntensity !== undefined) {
+        sun.material.emissiveIntensity = sun.material.userData.originalEmissiveIntensity;
+    }
+
+    // 恢复星空背景
+    if (starField) {
+        starField.visible = true;
+    }
+    
+    // 确保星云在非AR模式下可见
+    if (scene.userData.nebulaMaterials) {
+        scene.userData.nebulaMaterials.forEach(nebula => {
+            nebula.sprite.visible = true;
+            // 恢复原始状态
+            if (nebula.originalScale) {
+                nebula.baseScale = nebula.originalScale;
+                nebula.originalScale = null;
+                nebula.sprite.scale.set(nebula.baseScale, nebula.baseScale, 1);
+            }
+            // 恢复随机位置
+            const distance = 50 + Math.random() * 200;
+            const phi = Math.random() * Math.PI * 2;
+            const theta = Math.random() * Math.PI;
+            
+            nebula.sprite.position.x = distance * Math.sin(theta) * Math.cos(phi);
+            nebula.sprite.position.y = distance * Math.sin(theta) * Math.sin(phi);
+            nebula.sprite.position.z = distance * Math.cos(theta);
+        });
+    }
+
+    // 恢复性能优化前的设置
+    applyARPerformanceOptimizations(false);
+
+    // 移除星球卡片
+    const planetCards = document.getElementById('ar-planet-cards');
+    if (planetCards) {
+        planetCards.remove();
+    }
+
+    // 重置相机偏移
+    targetCameraOffset.set(0, 0, 0);
+    currentCameraOffset.copy(targetCameraOffset);
+    
+    // 恢复星系发光效果的默认状态
+    if (scene.userData.galaxyGlow) {
+        scene.userData.galaxyGlow.layers.forEach(layer => {
+            // 恢复原位
+            layer.mesh.position.set(0, 0, 0);
+            
+            // 恢复原始尺寸
+            if (layer.originalScale) {
+                layer.mesh.scale.copy(layer.originalScale);
+                layer.originalScale = null;
+            }
+            
+            // 恢复透明度
+            layer.material.opacity = 1.0;
+        });
+    }
+    
+    // 恢复所有天体的原始尺寸
+    if (sun && sun.userData.originalScale) {
+        sun.scale.copy(sun.userData.originalScale);
+        sun.userData.originalScale = null;
+    }
+    
+    for (const planetName in planets) {
+        const planet = planets[planetName];
+        if (planet && planet.userData.originalScale) {
+            planet.scale.copy(planet.userData.originalScale);
+            planet.userData.originalScale = null;
+            
+            // 恢复月球原始尺寸
+            planet.children.forEach(child => {
+                if (child.userData && child.userData.isMoon && child.userData.originalScale) {
+                    child.scale.copy(child.userData.originalScale);
+                    child.userData.originalScale = null;
+                }
+            });
+        }
+    }
+
+    // 隐藏太阳系椭球光晕
+    if (solarSystemGroup.userData.solarGlow) {
+        solarSystemGroup.userData.solarGlow.layers.forEach(layer => {
+            layer.mesh.visible = false;
+        });
+    }
+}
+
+// 新增：AR模式下的性能优化函数
+function applyARPerformanceOptimizations(enableOptimizations) {
+    // 针对渲染器的优化
+    if (enableOptimizations) {
+        // 降低AR模式下的渲染分辨率以提高性能
+        // 保存原始像素比
+        renderer.userData = renderer.userData || {};
+        renderer.userData.originalPixelRatio = renderer.getPixelRatio();
+        
+        // 在移动设备上进一步降低分辨率
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        const newPixelRatio = isMobile ? 
+            Math.min(window.devicePixelRatio, 1.0) * 0.75 : // 移动设备降低至75%
+            Math.min(window.devicePixelRatio, 1.5) * 0.85;  // 桌面设备降低至85%
+            
+        renderer.setPixelRatio(newPixelRatio);
+    } else {
+        // 恢复原始渲染质量
+        if (renderer.userData && renderer.userData.originalPixelRatio) {
+            renderer.setPixelRatio(renderer.userData.originalPixelRatio);
+        }
+    }
+    
+    // 优化光照计算
+    scene.traverse((object) => {
+        if (object.isMesh) {
+            // 保存原始阴影设置
+            if (!object.userData) object.userData = {};
+            if (enableOptimizations) {
+                object.userData.originalCastShadow = object.castShadow;
+                object.userData.originalReceiveShadow = object.receiveShadow;
+                
+                // AR模式下禁用阴影以提升性能
+                object.castShadow = false;
+                object.receiveShadow = false;
+                
+                // 如果物体使用较复杂的材质，可以降低其质量
+                if (object.material) {
+                    if (Array.isArray(object.material)) {
+                        object.material.forEach(mat => {
+                            optimizeMaterial(mat, true);
+                        });
+                    } else {
+                        optimizeMaterial(object.material, true);
+                    }
+                }
+            } else {
+                // 恢复原始阴影设置
+                if (object.userData.originalCastShadow !== undefined) {
+                    object.castShadow = object.userData.originalCastShadow;
+                }
+                if (object.userData.originalReceiveShadow !== undefined) {
+                    object.receiveShadow = object.userData.originalReceiveShadow;
+                }
+                
+                // 恢复材质质量
+                if (object.material) {
+                    if (Array.isArray(object.material)) {
+                        object.material.forEach(mat => {
+                            optimizeMaterial(mat, false);
+                        });
+                    } else {
+                        optimizeMaterial(object.material, false);
+                    }
+                }
+            }
+        }
+    });
+    
+    // 调整MediaPipe Hands配置以优化性能
+    if (enableOptimizations && hands) {
+        // 移动设备上使用较轻量的检测模型
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        hands.setOptions({
+            maxNumHands: 2,
+            modelComplexity: isMobile ? 0 : 1, // 移动设备使用轻量模型
+            minDetectionConfidence: isMobile ? 0.6 : 0.7, // 移动设备可以适当降低检测置信度
+            minTrackingConfidence: isMobile ? 0.5 : 0.7  // 移动设备可以适当降低跟踪置信度
+        });
+    }
+}
+
+// 优化材质质量
+function optimizeMaterial(material, reduce) {
+    if (!material.userData) material.userData = {};
+    
+    if (reduce) {
+        // 保存原始质量参数
+        material.userData.originalPrecision = material.precision;
+        material.userData.originalFlatShading = material.flatShading;
+        
+        // 降低精度和细节
+        material.precision = "lowp"; // 使用低精度
+        material.flatShading = true; // 使用平面着色
+    } else {
+        // 恢复原始质量参数
+        if (material.userData.originalPrecision !== undefined) {
+            material.precision = material.userData.originalPrecision;
+        }
+        if (material.userData.originalFlatShading !== undefined) {
+            material.flatShading = material.userData.originalFlatShading;
+        }
+    }
+    
+    // 更新材质
+    material.needsUpdate = true;
+}
+
+// 新增：处理手部追踪结果的回调函数
+function onHandResults(results) {
+    // 绘制手部骨架线 - 注释掉以移除左上角视频窗口
+    /*
+    if (canvasCtx && canvasElement) {
+        canvasCtx.save();
+        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+        canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+        
+        if (results.multiHandLandmarks) {
+            for (const landmarks of results.multiHandLandmarks) {
+                // 绘制连接线
+                drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {
+                    color: '#00FF00',
+                    lineWidth: 2
+                });
+                // 绘制关键点
+                drawLandmarks(canvasCtx, landmarks, {
+                    color: '#FF0000',
+                    lineWidth: 1,
+                    radius: 2
+                });
+            }
+        }
+        canvasCtx.restore();
+    }
+    */
+
+    // 辅助函数：检查手是否在有效区域内
+    function isHandInValidArea(hand) {
+        return hand.x > 0.1 && hand.x < 0.9 && hand.y > 0.1 && hand.y < 0.9;
+    }
+
+    // 辅助函数：检测食指点击动作
+    function isIndexFingerClicking(landmarks) {
+        const indexFingerTip = landmarks[8]; // 食指尖
+        const indexFingerMCP = landmarks[5]; // 食指根部
+        const indexFingerPIP = landmarks[6]; // 食指中间关节
+        
+        // 计算食指弯曲程度
+        const tipToPIP = Math.sqrt(
+            Math.pow(indexFingerTip.x - indexFingerPIP.x, 2) +
+            Math.pow(indexFingerTip.y - indexFingerPIP.y, 2)
+        );
+        
+        const PIPToMCP = Math.sqrt(
+            Math.pow(indexFingerPIP.x - indexFingerMCP.x, 2) +
+            Math.pow(indexFingerPIP.y - indexFingerMCP.y, 2)
+        );
+        
+        // 如果食指尖接近食指中间关节，认为是点击动作
+        return tipToPIP < PIPToMCP * 0.3;
+    }
+
+    let foundLeftHand = false;
+    let foundRightHand = false;
+    let leftHandLandmarks = null;
+    let rightHandLandmarks = null;
+    let handsDetected = false;
+
+    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        handsDetected = true;
+        const handedness = results.multiHandedness;
+        
+        // 先找出左右手，将它们分别存储
+        results.multiHandLandmarks.forEach((landmarks, index) => {
+            let handType = handedness[index] && handedness[index].label; // 'Left' or 'Right'
+
+            // 在AR模式下，由于视频源已水平翻转，左右手会反过来
+            if (isARMode) {
+                if (handType === 'Left') handType = 'Right';
+                else if (handType === 'Right') handType = 'Left';
+            }
+
+            if (handType === 'Left' && isHandInValidArea(landmarks[0])) {
+                foundLeftHand = true;
+                leftHandLandmarks = landmarks;
+            } else if (handType === 'Right' && isHandInValidArea(landmarks[0])) {
+                foundRightHand = true;
+                rightHandLandmarks = landmarks;
+            }
+        });
+
+        // 检测到手指时暂停行星动画
+        if (!isPaused && (foundLeftHand || foundRightHand)) {
+            isPaused = true;
+            wasAnimationPaused = true;
+        }
+
+        // 处理右手点击和相机视角调整
+        if (foundRightHand) {
+            const palmCenter = {
+                x: rightHandLandmarks[0].x,
+                y: rightHandLandmarks[0].y,
+                z: rightHandLandmarks[0].z
+            };
+            
+            // 计算手部移动
+            if (lastRightHandPosition) {
+                const deltaX = palmCenter.x - lastRightHandPosition.x;
+                const deltaY = palmCenter.y - lastRightHandPosition.y;
+                
+                // 如果移动超过阈值
+                if (Math.abs(deltaX) > MOVEMENT_THRESHOLD || Math.abs(deltaY) > MOVEMENT_THRESHOLD) {
+                    // 调整相机偏移
+                    targetCameraOffset.x += deltaX * CAMERA_OFFSET_SENSITIVITY;
+                    targetCameraOffset.y -= deltaY * CAMERA_OFFSET_SENSITIVITY;
+                    
+                    // 限制最大偏移量
+                    targetCameraOffset.x = THREE.MathUtils.clamp(
+                        targetCameraOffset.x, -MAX_CAMERA_OFFSET, MAX_CAMERA_OFFSET
+                    );
+                    targetCameraOffset.y = THREE.MathUtils.clamp(
+                        targetCameraOffset.y, -MAX_CAMERA_OFFSET, MAX_CAMERA_OFFSET
+                    );
+                }
+            }
+            
+            // 更新上一帧位置
+            lastRightHandPosition = palmCenter;
+            
+            // 检测到点击动作时（保留原有功能）
+            if (isIndexFingerClicking(rightHandLandmarks)) {
+                // 将食指位置转换为屏幕坐标
+                const screenX = indexFingerTip.x * window.innerWidth;
+                const screenY = indexFingerTip.y * window.innerHeight;
+                
+                // 创建射线
+                const raycaster = new THREE.Raycaster();
+                const availableWidth = window.innerWidth * 0.7; // 考虑70%宽度区域
+                const mouse = new THREE.Vector2(
+                    (screenX / availableWidth) * 2 - 1, // 调整为70%宽度
+                    -(screenY / window.innerHeight) * 2 + 1
+                );
+                
+                raycaster.setFromCamera(mouse, camera);
+                
+                // 检测射线与行星的相交
+                const intersects = raycaster.intersectObjects(solarSystemGroup.children, true);
+                
+                if (intersects.length > 0) {
+                    // 找到第一个相交的行星
+                    const selectedPlanet = intersects[0].object;
+                    if (selectedPlanet.userData.isPlanet) {
+                        // 选中行星
+                        selectPlanet(selectedPlanet);
+                    }
+                }
+            }
+        }
+
+        // 处理左手旋转控制和相机视角调整
+        if (foundLeftHand) {
+            const palmCenter = {
+                x: leftHandLandmarks[0].x,
+                y: leftHandLandmarks[0].y,
+                z: leftHandLandmarks[0].z
+            };
+            
+            // 计算手部移动
+            if (lastLeftHandPosition) {
+                const deltaX = palmCenter.x - lastLeftHandPosition.x;
+                const deltaY = palmCenter.y - lastLeftHandPosition.y;
+                
+                // 如果移动超过阈值
+                if (Math.abs(deltaX) > MOVEMENT_THRESHOLD || Math.abs(deltaY) > MOVEMENT_THRESHOLD) {
+                    // 计算旋转变化值
+                    const rotX = deltaY * ROTATION_SENSITIVITY;
+                    const rotY = deltaX * ROTATION_SENSITIVITY;
+                    
+                    // 限制最大旋转角度在±10度范围内
+                    targetSolarSystemRotation.x = THREE.MathUtils.clamp(
+                        targetSolarSystemRotation.x + rotX, 
+                        -MAX_ROTATION_ANGLE, 
+                        MAX_ROTATION_ANGLE
+                    );
+                    
+                    targetSolarSystemRotation.y = THREE.MathUtils.clamp(
+                        targetSolarSystemRotation.y + rotY, 
+                        -MAX_ROTATION_ANGLE, 
+                        MAX_ROTATION_ANGLE
+                    );
+                    
+                    // 调整相机偏移
+                    targetCameraOffset.x += deltaX * CAMERA_OFFSET_SENSITIVITY;
+                    targetCameraOffset.y -= deltaY * CAMERA_OFFSET_SENSITIVITY;
+                    
+                    // 限制最大偏移量
+                    targetCameraOffset.x = THREE.MathUtils.clamp(
+                        targetCameraOffset.x, -MAX_CAMERA_OFFSET, MAX_CAMERA_OFFSET
+                    );
+                    targetCameraOffset.y = THREE.MathUtils.clamp(
+                        targetCameraOffset.y, -MAX_CAMERA_OFFSET, MAX_CAMERA_OFFSET
+                    );
+                }
+            }
+            
+            // 更新上一帧位置
+            lastLeftHandPosition = palmCenter;
+        }
+    } else {
+        // 没有手被检测到
+        lastLeftHandPosition = null;
+        lastRightHandPosition = null;
+    }
+
+    // 如果当前没有检测到手但先前暂停了动画，则设置一个延迟恢复
+    if (!handsDetected && wasAnimationPaused) {
+        // 清除任何现有的超时
+        if (handDetectionTimeout) {
+            clearTimeout(handDetectionTimeout);
+        }
+        
+        // 设置新的超时 - 2秒后恢复动画
+        handDetectionTimeout = setTimeout(() => {
+            if (isPaused && wasAnimationPaused) {
+                isPaused = false;
+                wasAnimationPaused = false;
+            }
+        }, 2000);
+    }
+
+    // 处理太阳系缩放动画（从小变大）
+    if (isARMode && arInitialState.systemScaleAnimationStarted) {
+        const now = Date.now();
+        const elapsed = now - arInitialState.systemScaleAnimationStartTime;
+        const progress = Math.min(elapsed / arInitialState.systemScaleAnimationDuration, 1.0);
+        
+        // 使用缓动函数使动画更自然
+        const easeProgress = easeInOutCubic(progress);
+        const currentScale = arInitialState.initialScale + 
+                             (arInitialState.targetScale - arInitialState.initialScale) * easeProgress;
+        
+        // 设置目标缩放
+        targetSolarSystemScale.set(currentScale, currentScale, currentScale);
+        
+        // 动画完成
+        if (progress >= 1.0) {
+            arInitialState.systemScaleAnimationStarted = false;
+            
+            // 确保椭球光晕可见
+            if (solarSystemGroup.userData.solarGlow) {
+                solarSystemGroup.userData.solarGlow.layers.forEach(layer => {
+                    layer.mesh.visible = true;
+                });
+            }
+            
+            // 新增：启用手势开合识别
+            isHandOpenCloseEnabled = true;
+            console.log("放大动画完成，启用手势开合识别");
+        }
+    }
+
+    // 新增：手势开合识别逻辑（放大动画完成后才启用）
+    if (isARMode && isHandOpenCloseEnabled && foundRightHand) {
+        // 检测手势开合状态
+        const thumbTip = rightHandLandmarks[4]; // 大拇指尖
+        const indexTip = rightHandLandmarks[8]; // 食指尖
+        
+        // 计算拇指和食指之间的距离
+        const fingerDistance = Math.sqrt(
+            Math.pow(thumbTip.x - indexTip.x, 2) + 
+            Math.pow(thumbTip.y - indexTip.y, 2) + 
+            Math.pow(thumbTip.z - indexTip.z, 2)
+        );
+        
+        const now = Date.now();
+        const timeSinceLastGesture = now - lastHandOpenCloseTime;
+        
+        // 根据距离判断手势状态（小于阈值为闭合，大于阈值为打开）
+        const newState = fingerDistance < 0.1 ? "closed" : "open";
+        
+        // 检测状态变化并应用冷却时间
+        if (newState !== handOpenCloseState && timeSinceLastGesture > HAND_GESTURE_COOLDOWN) {
+            handOpenCloseState = newState;
+            lastHandOpenCloseTime = now;
+            
+            // 手势从闭合到打开时触发动作
+            if (handOpenCloseState === "open") {
+                // 切换地球聚焦状态
+                isEarthFocused = !isEarthFocused;
+                
+                if (isEarthFocused) {
+                    // 保存当前状态
+                    saveOriginalPlanetStates();
+                    // 暂停太阳系自动运转
+                    isPaused = true;
+                    // 聚焦到地球
+                    focusOnEarth();
+                } else {
+                    // 恢复太阳系状态
+                    restoreOriginalPlanetStates();
+                    // 恢复太阳系运转
+                    isPaused = false;
+                }
+                
+                console.log("手势识别：" + (isEarthFocused ? "聚焦地球" : "恢复太阳系"));
+            }
+        }
+    }
+
+    // 应用平滑处理 (Lerp)
+    currentSolarSystemPosition.lerp(targetSolarSystemPosition, AR_SMOOTHING_FACTOR);
+    currentSolarSystemRotation.x = THREE.MathUtils.lerp(currentSolarSystemRotation.x, targetSolarSystemRotation.x, AR_SMOOTHING_FACTOR);
+    currentSolarSystemRotation.y = THREE.MathUtils.lerp(currentSolarSystemRotation.y, targetSolarSystemRotation.y, AR_SMOOTHING_FACTOR);
+    currentSolarSystemRotation.z = THREE.MathUtils.lerp(currentSolarSystemRotation.z, targetSolarSystemRotation.z, AR_SMOOTHING_FACTOR);
+    currentSolarSystemScale.lerp(targetSolarSystemScale, AR_SMOOTHING_FACTOR);
+
+    // 更新 solarSystemGroup 的实际变换
+    if(isARMode) { // 只在AR模式下应用这些变换
+        solarSystemGroup.position.copy(currentSolarSystemPosition);
+        solarSystemGroup.rotation.copy(currentSolarSystemRotation);
+        solarSystemGroup.scale.copy(currentSolarSystemScale);
+    }
+
+    // 添加双手检测逻辑，在识别到双手后展示太阳系
+    if (isARMode && foundLeftHand && foundRightHand && !arInitialState.isSolarSystemVisible) {
+        arInitialState.isSolarSystemVisible = true;
+        arInitialState.systemScaleAnimationStarted = true;
+        arInitialState.systemScaleAnimationStartTime = Date.now();
+        
+        // 开始动画，但不立即设置目标缩放，让动画函数处理
+        console.log("检测到双手，开始展示太阳系");
+    }
+}
+
+// 新增：显示所有行星的函数
+function showAllPlanets() {
+    // 遍历所有行星，确保它们都可见
+    for (const planetName in planets) {
+        const planet = planets[planetName];
+        if (planet) {
+            planet.visible = true;
+            // 确保行星的标签也可见，但在AR模式下仍然隐藏
+            if (planet.userData && planet.userData.label) {
+                planet.userData.label.visible = true;
+                // 在AR模式下强制隐藏标签
+                if (isARMode && planet.userData.label.element) {
+                    planet.userData.label.element.style.display = 'none';
+                }
+            }
+        }
+    }
+    // 确保太阳可见
+    if (sun) {
+        sun.visible = true;
+        if (sun.userData && sun.userData.label) {
+            sun.userData.label.visible = true;
+            // 在AR模式下强制隐藏标签
+            if (isARMode && sun.userData.label.element) {
+                sun.userData.label.element.style.display = 'none';
+            }
+        }
+    }
+}
+
+// 新增：创建AR模式下的星球卡片UI
+function createARPlanetCards() {
+    const cardsContainer = document.createElement('div');
+    cardsContainer.id = 'ar-planet-cards';
+    cardsContainer.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 15px;
+        padding: 15px;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        z-index: 1000;
+    `;
+
+    // 创建星球卡片
+    const planetNames = ['sun', 'mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
+    planetNames.forEach(planetName => {
+        const card = document.createElement('div');
+        card.className = 'ar-planet-card';
+        card.dataset.planet = planetName;
+        card.style.cssText = `
+            width: 60px;
+            height: 80px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        `;
+
+        // 添加星球图标
+        const planetIcon = document.createElement('div');
+        planetIcon.className = 'planet-icon';
+        planetIcon.style.cssText = `
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: ${getPlanetColor(planetName)};
+            margin-bottom: 5px;
+            box-shadow: 0 0 10px ${getPlanetColor(planetName)};
+        `;
+
+        // 添加星球名称
+        const nameElement = document.createElement('div');
+        nameElement.className = 'planet-name';
+        nameElement.textContent = PLANET_DATA[planetName].info.name;
+        nameElement.style.cssText = `
+            color: white;
+            font-size: 12px;
+            text-align: center;
+            margin-top: 5px;
+        `;
+
+        card.appendChild(planetIcon);
+        card.appendChild(nameElement);
+        cardsContainer.appendChild(card);
+    });
+
+    document.body.appendChild(cardsContainer);
+    return cardsContainer;
+}
+
+// 新增：获取星球颜色
+function getPlanetColor(planetName) {
+    const colors = {
+        sun: '#FFD700',
+        mercury: '#A9A9A9',
+        venus: '#F9D5A7',
+        earth: '#4169E1',
+        mars: '#FF4500',
+        jupiter: '#DAA520',
+        saturn: '#DFD3A9',
+        uranus: '#99CCFF',
+        neptune: '#3366FF'
+    };
+    return colors[planetName] || '#FFFFFF';
+}
+
+// 新增：创建星云星系效果
+function createNebulas() {
+    // 创建更多的星云
+    const nebulaCount = 15 + Math.floor(Math.random() * 5); // 大幅增加数量
+    const nebulaMaterials = [];
+    
+    // 加载星云纹理
+    const nebulaTextures = [
+        textureLoader.load('./src/assets/textures/nebula1.png'),
+        textureLoader.load('./src/assets/textures/nebula2.png'),
+        textureLoader.load('./src/assets/textures/nebula3.png')
+    ];
+    
+    // 生成更明亮的白色系颜色
+    const nebulaColors = [
+        new THREE.Color(0xffffff).multiplyScalar(2.0), // 超亮白色
+        new THREE.Color(0xffffff).multiplyScalar(1.8), // 更亮的白色
+        new THREE.Color(0xffffff).multiplyScalar(1.5), // 明亮的白色
+        new THREE.Color(0xfefefe).multiplyScalar(1.8), // 明亮的浅色
+        new THREE.Color(0xf8f8ff).multiplyScalar(1.8)  // 明亮的幽灵白
+    ];
+    
+    for (let i = 0; i < nebulaCount; i++) {
+        // 随机选择纹理和颜色
+        const textureIndex = Math.floor(Math.random() * nebulaTextures.length);
+        const colorIndex = Math.floor(Math.random() * nebulaColors.length);
+        
+        // 创建星云材质 - 大幅增加不透明度
+        const nebulaMaterial = new THREE.SpriteMaterial({
+            map: nebulaTextures[textureIndex],
+            color: nebulaColors[colorIndex],
+            blending: THREE.AdditiveBlending,
+            opacity: 0.9 + Math.random() * 0.1, // 接近完全不透明
+            transparent: true,
+            depthWrite: false
+        });
+
+        // 创建星云精灵
+        const nebula = new THREE.Sprite(nebulaMaterial);
+        
+        // 设置随机位置（非常靠近太阳系）
+        const distance = 50 + Math.random() * 200; // 大幅减小距离
+        const phi = Math.random() * Math.PI * 2;
+        const theta = Math.random() * Math.PI;
+        
+        nebula.position.x = distance * Math.sin(theta) * Math.cos(phi);
+        nebula.position.y = distance * Math.sin(theta) * Math.sin(phi);
+        nebula.position.z = distance * Math.cos(theta);
+        
+        // 设置极大的尺寸
+        const size = 300 + Math.random() * 400; // 大幅增大尺寸
+        nebula.scale.set(size, size, 1);
+        
+        // 添加到场景
+        scene.add(nebula);
+        
+        // 保存材质引用便于动画
+        nebulaMaterials.push({
+            material: nebulaMaterial,
+            sprite: nebula,
+            pulseSpeed: 0.05 + Math.random() * 0.1, // 更缓慢的脉动
+            pulseAmount: 0.3 + Math.random() * 0.4, // 更大的脉动幅度
+            rotationSpeed: (Math.random() - 0.5) * 0.005, // 降低旋转速度
+            time: Math.random() * 100,
+            baseScale: size // 保存基础大小用于脉动计算
+        });
+    }
+    
+    // 将星云材质列表保存到全局变量
+    scene.userData.nebulaMaterials = nebulaMaterials;
+    
+    console.log("星云创建完成，数量:", nebulaMaterials.length);
+}
+
+// 添加创建AR太阳系椭球光晕的函数
+function createARSolarGlow() {
+    // 已移除光晕效果
+    console.log("光晕效果已禁用");
+    
+    // 创建一个空的对象来保持代码结构一致
+    solarSystemGroup.userData.solarGlow = {
+        layers: [],
+        pulseTime: 0,
+        pulseSpeed: 0
+    };
+}
+
+// 新增：保存行星原始状态
+function saveOriginalPlanetStates() {
+    originalPlanetStates = {
+        solarSystemPosition: solarSystemGroup.position.clone(),
+        solarSystemRotation: solarSystemGroup.rotation.clone(),
+        solarSystemScale: solarSystemGroup.scale.clone(),
+        camerPosition: camera.position.clone(),
+        controlsTarget: controls.target.clone()
+    };
+}
+
+// 新增：恢复行星原始状态
+function restoreOriginalPlanetStates() {
+    if (originalPlanetStates.solarSystemPosition) {
+        // 创建平滑过渡动画
+        const duration = 1000; // 1秒过渡
+        const startTime = Date.now();
+        
+        // 记录开始位置
+        const startPosition = solarSystemGroup.position.clone();
+        const startRotation = new THREE.Euler(
+            solarSystemGroup.rotation.x,
+            solarSystemGroup.rotation.y,
+            solarSystemGroup.rotation.z
+        );
+        const startScale = solarSystemGroup.scale.clone();
+        const startCameraPosition = camera.position.clone();
+        const startControlsTarget = controls.target.clone();
+        
+        // 目标位置
+        const targetPosition = originalPlanetStates.solarSystemPosition;
+        const targetRotation = originalPlanetStates.solarSystemRotation;
+        const targetScale = originalPlanetStates.solarSystemScale;
+        const targetCameraPosition = originalPlanetStates.camerPosition;
+        const targetControlsTarget = originalPlanetStates.controlsTarget;
+        
+        // 创建过渡动画
+        function animateTransition() {
+            const now = Date.now();
+            const elapsed = now - startTime;
+            const progress = Math.min(elapsed / duration, 1.0);
+            const easeProgress = easeInOutCubic(progress);
+            
+            // 应用过渡动画
+            solarSystemGroup.position.lerpVectors(startPosition, targetPosition, easeProgress);
+            
+            // 旋转插值
+            solarSystemGroup.rotation.x = startRotation.x + (targetRotation.x - startRotation.x) * easeProgress;
+            solarSystemGroup.rotation.y = startRotation.y + (targetRotation.y - startRotation.y) * easeProgress;
+            solarSystemGroup.rotation.z = startRotation.z + (targetRotation.z - startRotation.z) * easeProgress;
+            
+            // 缩放插值
+            solarSystemGroup.scale.lerpVectors(startScale, targetScale, easeProgress);
+            
+            // 相机位置和控制点
+            camera.position.lerpVectors(startCameraPosition, targetCameraPosition, easeProgress);
+            controls.target.lerpVectors(startControlsTarget, targetControlsTarget, easeProgress);
+            
+            // 恢复行星透明度
+            Object.entries(planets).forEach(([name, planet]) => {
+                if (planet.material && planet.userData.originalOpacity !== undefined) {
+                    // 逐渐恢复原始透明度
+                    const currentOpacity = planet.material.opacity;
+                    planet.material.opacity = currentOpacity + (planet.userData.originalOpacity - currentOpacity) * easeProgress;
+                    
+                    // 如果透明度恢复到接近原始值，取消透明设置
+                    if (progress >= 0.99) {
+                        if (planet.userData.originalOpacity >= 0.99) {
+                            planet.material.transparent = false;
+                        }
+                    }
+                    
+                    // 处理行星的云层和环
+                    planet.children.forEach(child => {
+                        if (child.material && child.userData.originalOpacity !== undefined) {
+                            const childCurrentOpacity = child.material.opacity;
+                            child.material.opacity = childCurrentOpacity + 
+                                (child.userData.originalOpacity - childCurrentOpacity) * easeProgress;
+                                
+                            // 如果透明度恢复到接近原始值，取消透明设置
+                            if (progress >= 0.99) {
+                                if (child.userData.originalOpacity >= 0.99) {
+                                    child.material.transparent = false;
+                                }
+                            }
+                        }
+                    });
+                }
+            });
+            
+            // 恢复太阳透明度
+            if (sun && sun.material && sun.userData.originalOpacity !== undefined) {
+                const sunCurrentOpacity = sun.material.opacity;
+                sun.material.opacity = sunCurrentOpacity + 
+                    (sun.userData.originalOpacity - sunCurrentOpacity) * easeProgress;
+                
+                // 如果透明度恢复到接近原始值，取消透明设置
+                if (progress >= 0.99) {
+                    if (sun.userData.originalOpacity >= 0.99) {
+                        sun.material.transparent = false;
+                    }
+                }
+            }
+            
+            if (progress < 1.0) {
+                requestAnimationFrame(animateTransition);
+            }
+        }
+        
+        // 启动动画
+        animateTransition();
+    }
+}
+
+// 新增：聚焦到地球
+function focusOnEarth() {
+    if (!planets.earth) {
+        console.warn("地球模型不存在");
+        return;
+    }
+    
+    // 创建平滑过渡动画
+    const duration = 1000; // 1秒过渡
+    const startTime = Date.now();
+    
+    // 记录开始位置
+    const startPosition = solarSystemGroup.position.clone();
+    const startRotation = new THREE.Euler(
+        solarSystemGroup.rotation.x,
+        solarSystemGroup.rotation.y,
+        solarSystemGroup.rotation.z
+    );
+    const startScale = solarSystemGroup.scale.clone();
+    const startCameraPosition = camera.position.clone();
+    const startControlsTarget = controls.target.clone();
+    
+    // 目标位置 - 将地球置于中心
+    const earthWorldPosition = new THREE.Vector3();
+    planets.earth.getWorldPosition(earthWorldPosition);
+    
+    // 计算将地球移到中心需要的偏移量
+    const offset = earthWorldPosition.clone().negate();
+    const targetPosition = startPosition.clone().add(offset);
+    
+    // 目标旋转 - 保持当前旋转
+    const targetRotation = new THREE.Euler(
+        solarSystemGroup.rotation.x,
+        solarSystemGroup.rotation.y,
+        solarSystemGroup.rotation.z
+    );
+    
+    // 放大太阳系以突出地球
+    const targetScale = startScale.clone().multiplyScalar(3.5); // 从2.5增加到3.5，使地球更大
+    
+    // 计算相机位置，使其更靠近地球
+    const earthRadius = planets.earth.geometry.parameters.radius * targetScale.x;
+    const cameraDistance = earthRadius * 5; // 更近的距离，原来没有这个计算
+    
+    // 基于当前相机方向计算新的相机位置
+    const cameraDirection = new THREE.Vector3().subVectors(
+        camera.position, 
+        earthWorldPosition
+    ).normalize();
+    
+    const targetCameraPosition = new THREE.Vector3().addVectors(
+        earthWorldPosition,
+        cameraDirection.multiplyScalar(cameraDistance)
+    );
+    
+    const targetControlsTarget = earthWorldPosition.clone();
+    
+    // 保存每个行星的原始材质透明度
+    Object.entries(planets).forEach(([name, planet]) => {
+        if (!planet.userData.originalOpacity) {
+            if (planet.material) {
+                planet.userData.originalOpacity = planet.material.opacity || 1.0;
+            }
+        }
+    });
+    
+    // 创建过渡动画
+    function animateTransition() {
+        const now = Date.now();
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1.0);
+        const easeProgress = easeInOutCubic(progress);
+        
+        // 应用过渡动画
+        solarSystemGroup.position.lerpVectors(startPosition, targetPosition, easeProgress);
+        
+        // 旋转插值
+        solarSystemGroup.rotation.x = startRotation.x + (targetRotation.x - startRotation.x) * easeProgress;
+        solarSystemGroup.rotation.y = startRotation.y + (targetRotation.y - startRotation.y) * easeProgress;
+        solarSystemGroup.rotation.z = startRotation.z + (targetRotation.z - startRotation.z) * easeProgress;
+        
+        // 缩放插值
+        solarSystemGroup.scale.lerpVectors(startScale, targetScale, easeProgress);
+        
+        // 相机位置和控制点
+        camera.position.lerpVectors(startCameraPosition, targetCameraPosition, easeProgress);
+        controls.target.lerpVectors(startControlsTarget, targetControlsTarget, easeProgress);
+        
+        // 调整行星透明度
+        Object.entries(planets).forEach(([name, planet]) => {
+            if (name !== 'earth') {
+                if (planet.material) {
+                    // 非地球行星透明度逐渐降低到25%
+                    const targetOpacity = 0.25;
+                    const originalOpacity = planet.userData.originalOpacity || 1.0;
+                    planet.material.transparent = true;
+                    planet.material.opacity = originalOpacity - (originalOpacity - targetOpacity) * easeProgress;
+                    
+                    // 处理行星的云层和环
+                    planet.children.forEach(child => {
+                        if (child.material) {
+                            child.material.transparent = true;
+                            // 保存云层和环的原始透明度
+                            if (!child.userData.originalOpacity && child.material.opacity !== undefined) {
+                                child.userData.originalOpacity = child.material.opacity;
+                            }
+                            const childOriginalOpacity = child.userData.originalOpacity || child.material.opacity || 1.0;
+                            child.material.opacity = childOriginalOpacity - (childOriginalOpacity - targetOpacity) * easeProgress;
+                        }
+                    });
+                }
+            }
+        });
+        
+        // 太阳也需要调整透明度
+        if (sun && sun.material) {
+            if (!sun.userData.originalOpacity) {
+                sun.userData.originalOpacity = sun.material.opacity || 1.0;
+            }
+            sun.material.transparent = true;
+            sun.material.opacity = sun.userData.originalOpacity - (sun.userData.originalOpacity - 0.25) * easeProgress;
+        }
+        
+        if (progress < 1.0) {
+            requestAnimationFrame(animateTransition);
+        } else {
+            // 为地球添加轻微自转
+            planets.earth.userData.autoRotate = true;
+        }
+    }
+    
+    // 启动动画
+    animateTransition();
+}
+
+// 添加全局接口供聊天模块调用
+window.simulationRunning = true;  // 初始状态为运行
+
+// 暂停/继续功能状态跟踪
+const pauseBtn = document.getElementById('pause-btn');
+const originalPauseFunc = pauseBtn.onclick;
+pauseBtn.onclick = function() {
+    if (originalPauseFunc) originalPauseFunc.call(this);
+    window.simulationRunning = !window.simulationRunning;
+};
+
+// 重置相机位置接口
+window.resetCameraPosition = function() {
+    camera.position.set(0, 50, 150);
+    camera.lookAt(0, 0, 0);
+    controls.update();
+};
+
+// 公开focusOnPlanet函数给聊天模块使用
+window.focusOnPlanetById = function(planetId) {
+    selectPlanet(planetId);
+};
+
+// 添加俯视图功能
+window.setTopView = function() {
+    // 关闭行星信息面板
+    closePlanetInfo();
+
+    // 设置相机动画
+    isAnimatingCamera = true;
+    cameraAnimationStartTime = Date.now();
+    
+    cameraStartPosition.copy(camera.position);
+    controlsStartTarget.copy(controls.target);
+    
+    // 设置俯视图相机位置 - 在太阳系上方垂直向下看
+    cameraTargetPosition.set(0, 150, 0);
+    controlsTargetPosition.set(0, 0, 0);
+    
+    // 移除行星选择的活动状态
+    const planetItems = document.querySelectorAll('#planet-selection li');
+    planetItems.forEach(el => el.classList.remove('active'));
+};
+
+// 添加还原视图功能
+function resetView() {
+    // 关闭行星信息面板
+    closePlanetInfo();
+
+    // 重置相机位置
+    isAnimatingCamera = true;
+    cameraAnimationStartTime = Date.now();
+    
+    cameraStartPosition.copy(camera.position);
+    controlsStartTarget.copy(controls.target);
+    
+    // 设置默认视图位置
+    cameraTargetPosition.set(0, 50, 100);
+    controlsTargetPosition.set(0, 0, 0);
+    
+    // 恢复行星运行
+    isPaused = false;
+    
+    // 移除行星选择的活动状态
+    const planetItems = document.querySelectorAll('#planet-selection li');
+    planetItems.forEach(el => el.classList.remove('active'));
+    
+    // 恢复默认速度
+    speedFactor = 1;
+    document.getElementById('speed-slider').value = 1;
+    document.getElementById('speed-value').textContent = '1x';
+}
+
+// 启动应用
+init(); 

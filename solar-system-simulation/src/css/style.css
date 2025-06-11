@@ -1,0 +1,282 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+    background-color: #000;
+    color: #fff;
+}
+
+#container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+#info {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 300px;
+    padding: 10px;
+    background-color: rgba(0, 0, 0, 0.7);
+    border-radius: 5px;
+    z-index: 10;
+}
+
+h1 {
+    margin-top: 0;
+    font-size: 24px;
+}
+
+#controls {
+    margin-top: 20px;
+}
+
+button {
+    padding: 8px 15px;
+    margin-right: 10px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+.slider-container {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+}
+
+.slider-container label {
+    margin-right: 10px;
+}
+
+input[type="range"] {
+    flex: 1;
+}
+
+#speed-value {
+    margin-left: 10px;
+    min-width: 30px;
+}
+
+/* 行星信息面板样式 */
+#planet-info {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    max-width: 800px;
+    padding: 10px;
+    background-color: rgba(0, 0, 0, 0.8);
+    border-radius: 8px;
+    z-index: 100;
+    border: 1px solid #444;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.hidden {
+    display: none;
+}
+
+#planet-name {
+    margin-top: 0;
+    margin-bottom: 8px;
+    font-size: 20px;
+    text-align: center;
+    color: #ffcc00;
+}
+
+#close-info {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: transparent;
+    color: #aaa;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    width: 25px;
+    height: 25px;
+    line-height: 25px;
+    text-align: center;
+}
+
+#close-info:hover {
+    color: #fff;
+}
+
+.info-row {
+    display: flex;
+    margin-bottom: 5px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #333;
+}
+
+.info-row.combined {
+    display: inline-flex;
+    width: 47%;
+    margin-right: 2%;
+    vertical-align: top;
+}
+
+.info-label {
+    flex: 1;
+    font-weight: bold;
+    color: #8cc7ff;
+}
+
+.info-value {
+    flex: 2;
+}
+
+.description {
+    display: block;
+    margin-top: 3px;
+    line-height: 1.3;
+}
+
+/* 行星选择菜单 */
+#planet-selection {
+    position: absolute;
+    top: 50%;
+    left: 20px;
+    transform: translateY(-50%);
+    background-color: rgba(0, 0, 0, 0.7);
+    border-radius: 5px;
+    padding: 15px 10px;
+    z-index: 10;
+}
+
+#planet-selection ul {
+    display: flex;
+    flex-direction: column;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+#planet-selection li {
+    margin: 8px 0;
+    padding: 5px 10px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+#planet-selection li:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+#planet-selection li.active {
+    background-color: #4CAF50;
+    color: white;
+}
+
+/* 行星标签样式 */
+.planet-label {
+    color: white;
+    font-size: 14px;
+    background-color: rgba(0, 0, 0, 0.6);
+    padding: 2px 6px;
+    border-radius: 3px;
+    pointer-events: none;
+    white-space: nowrap;
+    transition: opacity 0.3s;
+    transform: translate(-50%, -50%);
+    text-shadow: 0 0 3px rgba(0, 0, 0, 0.8);
+}
+
+/* AR模式按钮样式 */
+#ar-toggle-btn {
+    background-color: #2196F3; /* 蓝色背景区分AR按钮 */
+    position: relative;
+    overflow: hidden;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+#ar-toggle-btn:hover {
+    background-color: #0b7dda;
+}
+
+#ar-toggle-btn.active {
+    background-color: #e91e63; /* 激活时变为粉色 */
+    transform: scale(1.05);
+}
+
+#ar-toggle-btn:disabled {
+    opacity: 0.7;
+    cursor: wait;
+}
+
+/* AR状态指示器 */
+#ar-status-indicator {
+    transition: opacity 0.5s;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
+    50% { transform: translate(-50%, -50%) scale(1.05); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
+}
+
+/* AR使用指南样式 */
+#ar-guide {
+    animation: slideIn 0.5s ease-out;
+}
+
+.ar-guide-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.ar-guide-content h3 {
+    margin-top: 0;
+    color: #ffcc00;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.ar-guide-content ul {
+    margin: 0;
+    padding-left: 20px;
+    margin-bottom: 15px;
+}
+
+.ar-guide-content li {
+    margin-bottom: 8px;
+    line-height: 1.3;
+}
+
+.ar-guide-content strong {
+    color: #8cc7ff;
+}
+
+#ar-guide-close {
+    align-self: center;
+    background-color: #555;
+    padding: 5px 15px;
+    margin-top: 5px;
+}
+
+#ar-guide-close:hover {
+    background-color: #666;
+}
+
+@keyframes slideIn {
+    from { transform: translateY(50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+} 

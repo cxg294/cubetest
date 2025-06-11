@@ -1,0 +1,8 @@
+﻿
+// 公开focusOnPlanet函数给聊天模块使用
+window.focusOnPlanetById = function(planetId) {
+    selectPlanet(planetId);
+};
+
+// 启动应用
+init(); // 启动太阳系模拟应用
